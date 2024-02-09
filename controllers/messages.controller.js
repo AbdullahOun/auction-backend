@@ -26,6 +26,7 @@ const getMessage = asyncWrapper(
 
 const createMessage = asyncWrapper( 
     async (req, res,next) => {
+        req.body.senderId = req.decodedToken.id;
     const newMessage = new Message(req.body);
     await newMessage.save();
     

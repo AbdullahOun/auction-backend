@@ -8,10 +8,10 @@ router.route('/:chatRoomid')
     .patch(chatRoomController.updateChatRoom)
     .delete(chatRoomController.deleteChatRoom);
 
-router.route('/:user_Id')
-    .get(chatRoomController.getAllChatRooms);
+
 
 router.route('/')
+    .get(verifyToken,chatRoomController.getAllChatRooms)
     .post(chatRoomController.createChatRoom);
 
 

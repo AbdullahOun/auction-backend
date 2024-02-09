@@ -18,7 +18,8 @@ const getOrder = asyncWrapper(
 
 const createOrder = asyncWrapper( 
     async (req, res,next) => {
-        const newOrder = new Order(req.body);
+        
+        const newOrder = new Order({price:req.body.price, productId:req.body.productId, buyerId:req.decodedToken.id, sellerId:req.body.sellerId});
         await newOrder.save();
     
     res.status(201).json({status: httpStatusText.SUCCESS, data:{newOrder}});

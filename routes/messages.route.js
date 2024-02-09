@@ -4,14 +4,14 @@ const router = express.Router();
 const verifyToken = require('../middlewares/verifyToken');
 
 router.route('/:chatRoom_Id')
-    .get(messageController.getAllMessages);
+    .get(verifyToken,messageController.getAllMessages);
 
 
 router.route('/:message_Id')
-    .get(messageController.getMessage)
-    .patch(messageController.updateMessage)
-    .delete(messageController.deleteMessage);
+    .get(verifyToken,messageController.getMessage)
+    .patch(verifyToken,messageController.updateMessage)
+    .delete(verifyToken,messageController.deleteMessage);
 
 router.route('/')
-    .post(messageController.createMessage);
+    .post(verifyToken,messageController.createMessage);
 module.exports = router;
