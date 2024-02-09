@@ -8,7 +8,7 @@ const appError = require('../utils/appError');
 
 const getAllChatRooms = asyncWrapper(
     async(req, res,next) => {
-    const chatRooms = await ChatRoom.find({user1:req.params.user_Id},{"__v":false});
+    const chatRooms = await ChatRoom.find({user1:req.decodedToken.id},{"__v":false});
     res.json({status: "succcess", data:{chatRooms}});
 });
 

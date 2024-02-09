@@ -4,7 +4,7 @@ const router = express.Router();
 const verifyToken = require('../middlewares/verifyToken');
 
 router.route('/')
-    .post(orderController.createOrder);
+    .post(verifyToken,orderController.createOrder);
 
 
 

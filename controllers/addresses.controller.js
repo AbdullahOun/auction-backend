@@ -7,7 +7,7 @@ const appError = require('../utils/appError');
 
 const getAddress = asyncWrapper(
     async(req, res,next) => {
-            const address = await Address.findOne({userId:req.params.user_Id});
+            const address = await Address.findOne({userId:req.decodedToken.id});
             if(!address){
                 const error = appError.create('Address not found', 404 ,httpStatusText.FAIL);
                 return next(error);
@@ -18,7 +18,7 @@ const getAddress = asyncWrapper(
 
 const createAddress = asyncWrapper( 
     async (req, res) => {
-    const newAddress = new Address(req.body);
+    const newAddress = new Address(req.body,{userId:req.decodedToken.id});
     await newAddress.save();
     
     res.status(201).json({status: httpStatusText.SUCCESS, data:{newAddress}});
@@ -28,7 +28,7 @@ const createAddress = asyncWrapper(
 
 const updateAddress = asyncWrapper( 
     async(req, res,next) => {
-    const user_Id = req.params.user_Id;
+    const user_Id = req.decodedToken.id;
         let updateAddress = await Address.updateOne({userId:user_Id},{$set:{...req.body}});
         return res.status(200).json({status: httpStatusText.SUCCESS, data:{updateAddress}});
 
@@ -36,7 +36,7 @@ const updateAddress = asyncWrapper(
 
 const deleteAddress = asyncWrapper( 
     async(req, res,next)=> {
-        const user_Id = req.params.user_Id;
+        const user_Id = req.decodedToken.id;
     const data = await Address.deleteOne({userId: user_Id});
     res.status(200).json({status: httpStatusText.SUCCESS, data:null});
 

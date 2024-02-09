@@ -19,10 +19,20 @@ const productsRouter = require('./routes/products.route');
 const usersRouter = require('./routes/users.route');
 const auctionsRouter = require('./routes/auctions.route');
 const ordersRouter = require('./routes/orders.route');
+const messagesRouter = require('./routes/messages.route');
+const chatRoomsRouter = require('./routes/chatRooms.route');
+const bidsRouter = require('./routes/bids.route');
+const imagesRouter = require('./routes/images.route');
+const addressesRouter = require('./routes/addresses.route');
 app.use('/api/Products',productsRouter);
 app.use('/api/Users',usersRouter);
 app.use('/api/Auctions',auctionsRouter);
 app.use('/api/Orders',ordersRouter);
+app.use('/api/Messages',messagesRouter);
+app.use('/api/ChatRooms',chatRoomsRouter);
+app.use('/api/Bids',bidsRouter);
+app.use('/api/Images',imagesRouter);
+app.use('/api/Addresses',addressesRouter);
 app.all('*',(req,res,next)=>{
 
     res.status(404).json({status: httpStatusText.ERROR, message: 'This resource is not available'});
