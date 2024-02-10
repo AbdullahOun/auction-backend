@@ -4,14 +4,15 @@ const router = express.Router();
 const verifyToken = require('../middlewares/verifyToken');
 
 router.route('/')
+    .get(verifyToken,orderController.getAllOrder)
     .post(verifyToken,orderController.createOrder);
 
 
 
 router.route('/:orderId')
-    .get(orderController.getOrder)
-    .patch(orderController.updateOrder)
-    .delete(orderController.deleteOrder);
+    .get(verifyToken,orderController.getOrder)
+    .patch(verifyToken,orderController.updateOrder)
+    .delete(verifyToken,orderController.deleteOrder);
 
 
 module.exports = router;

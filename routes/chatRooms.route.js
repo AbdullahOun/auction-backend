@@ -4,15 +4,15 @@ const router = express.Router();
 const verifyToken = require('../middlewares/verifyToken');
 
 router.route('/:chatRoomid')
-    .get(chatRoomController.getChatRoom)
-    .patch(chatRoomController.updateChatRoom)
-    .delete(chatRoomController.deleteChatRoom);
+    .get(verifyToken,chatRoomController.getChatRoom)
+    .patch(verifyToken,chatRoomController.updateChatRoom)
+    .delete(verifyToken,chatRoomController.deleteChatRoom);
 
 
 
 router.route('/')
     .get(verifyToken,chatRoomController.getAllChatRooms)
-    .post(chatRoomController.createChatRoom);
+    .post(verifyToken,chatRoomController.createChatRoom);
 
 
 module.exports = router;

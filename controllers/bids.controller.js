@@ -26,7 +26,11 @@ const getBid = asyncWrapper(
 
 const createBid = asyncWrapper( 
     async (req, res) => {
-    const newBid = new Bid(req.body);
+    const newBid = new Bid({
+        auctionId: req.body.auctionId,
+        price:req.body.price,
+        buyerId:req.decodedToken.id
+    });
     await newBid.save();
     
     res.status(201).json({status: httpStatusText.SUCCESS, data:{newBid}});

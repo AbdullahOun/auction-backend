@@ -4,6 +4,13 @@ const httpStatusText = require('../utils/httpStatusText');
 const asyncWrapper = require('../middlewares/asyncWrapper');
 const appError = require('../utils/appError');
 
+const getAllOrder = asyncWrapper(
+    async(req, res,next) => {
+            const orders = await Order.find({buyerId:req.decodedToken.id});
+            
+        res.json({status: httpStatusText.SUCCESS, data:{orders}});
+    }
+);
 
 const getOrder = asyncWrapper(
     async(req, res,next) => {
@@ -48,5 +55,6 @@ module.exports = {
     getOrder,
     createOrder,
     updateOrder,
-    deleteOrder
+    deleteOrder,
+    getAllOrder
 };

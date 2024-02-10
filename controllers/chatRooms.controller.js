@@ -28,7 +28,7 @@ const getChatRoom = asyncWrapper(
 
 const createChatRoom = asyncWrapper(
     async (req, res,next) => {
-    const newChatRoom = new ChatRoom(req.body);
+    const newChatRoom = new ChatRoom({user1:req.decodedToken.id, user2:req.body.user2Id});
     await newChatRoom.save();
     
     res.status(201).json({status: httpStatusText.SUCCESS, data:{newChatRoom}});

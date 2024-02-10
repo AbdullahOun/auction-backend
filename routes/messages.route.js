@@ -14,4 +14,5 @@ router.route('/:message_Id')
 
 router.route('/')
     .post(verifyToken,messageController.createMessage);
+
 module.exports = router;

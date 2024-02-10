@@ -39,6 +39,7 @@ const upload = multer({
 
 router.route('/')
     .get(auctionController.getAllAuctions)
+    .get(verifyToken, auctionController.getAllAuctionsForUser)
     .post(verifyToken,upload.array('images',3),auctionController.createAction);
 
 

@@ -26,8 +26,13 @@ const getMessage = asyncWrapper(
 
 const createMessage = asyncWrapper( 
     async (req, res,next) => {
-        req.body.senderId = req.decodedToken.id;
-    const newMessage = new Message(req.body);
+        // req.body.senderId = req.decodedToken.id;
+    const newMessage = new Message({
+        chatRoomId:req.body.chatRoomId,
+        content: req.body.content,
+        senderId: req.decodedToken.id,
+        createdAt: req.body.createdAt
+    });
     await newMessage.save();
     
     res.status(201).json({status: httpStatusText.SUCCESS, data:{newMessage}});

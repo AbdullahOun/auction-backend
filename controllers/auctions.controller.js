@@ -18,6 +18,13 @@ const getAllAuctions = asyncWrapper(
 });
 
 
+const getAllAuctionsForUser = asyncWrapper(
+    async(req, res,next) => {
+
+    const auctions = await Auction.find({sellerId: req.decodedToken.id},{"__v":false});
+    res.json({status: "succcess", data:{auctions}});
+});
+
 const getAction = asyncWrapper(
     async(req, res,next) => {
         // ,_id:req.params.actionId
@@ -93,5 +100,6 @@ module.exports = {
     getAction,
     createAction,
     updateAction,
-    deleteAction
+    deleteAction,
+    getAllAuctionsForUser
 };

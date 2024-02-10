@@ -18,7 +18,13 @@ const getAddress = asyncWrapper(
 
 const createAddress = asyncWrapper( 
     async (req, res) => {
-    const newAddress = new Address(req.body,{userId:req.decodedToken.id});
+    const newAddress = new Address({
+        country:req.body.country,
+        city:req.body.city,
+        street:req.body.street,
+        houseNumber:req.body.houseNumber,
+        userId:req.decodedToken.id
+    });
     await newAddress.save();
     
     res.status(201).json({status: httpStatusText.SUCCESS, data:{newAddress}});
