@@ -1,3 +1,11 @@
+const User = require('../models/user.model');
+const asyncWrapper = require('../middlewares/asyncWrapper');
+const httpStatusText = require('../utils/httpStatusText');
+const appError = require('../utils/appError');
+const generateJWT = require('../utils/generateJWT');
+const {hashPassword , verifyPassword} = require('../utils/encryption');
+require('dotenv').config();
+
 /**
  * Registers a new user.
  * @param {Object} req - The request object.
@@ -52,14 +60,15 @@ const login = asyncWrapper(async (req, res, next) => {
 
     if (!user) {
         const error = appError.create('User not found', 400, httpStatusText.FAIL);
-        return next(error);
-        
+        next(error);
+        return;
     }
 
     const isMatch = verifyPassword(password, user.password);
     if (!isMatch) {
         const error = appError.create('Invalid password', 401, httpStatusText.FAIL);
-        return next(error);
+        next(error);
+        return;
     }
 
     const token = await generateJWT({ email: user.email, id: user._id });
@@ -70,3 +79,4 @@ module.exports = {
     register,
     login
 };
+
