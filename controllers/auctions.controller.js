@@ -1,10 +1,9 @@
-const Auction = require('../models/auction.model');
-const Product = require('../models/product.model');
-const Image = require('../models/image.model');
-const httpStatusText = require('../utils/httpStatusText');
-const asyncWrapper = require('../middlewares/asyncWrapper');
-const appError = require('../utils/appError');
-
+const Auction = require('../models/auction.model')
+const Product = require('../models/product.model')
+const httpStatusText = require('../utils/httpStatusText')
+const asyncWrapper = require('../middlewares/asyncWrapper')
+const appError = require('../utils/appError')
+const { ObjectId } = require('mongodb')
 /**
  * Retrieves all auctions.
  * @param {Object} req - The request object.
@@ -12,15 +11,18 @@ const appError = require('../utils/appError');
  * @param {Function} next - The next middleware function.
  * @returns {Promise<void>}
  */
-const getAllAuctions = asyncWrapper(
-    async (req, res, next) => {
-        const limit = req.query.limit || 6;
-        const page = req.query.page || 1;
-        const skip = (page - 1) * limit;
-        const auctions = await Auction.find({}, { "__v": false }).limit(limit).skip(skip);
-        res.json({ status: "success", data: { auctions }, error: null });
-    }
-);
+const getAllAuctions = asyncWrapper(async (req, res) => {
+    const limit = req.query.limit || 6
+    const page = req.query.page || 1
+    const skip = (page - 1) * limit
+    const auctions = await Auction.find({}, { __v: false })
+        .limit(limit)
+        .skip(skip)
+        .populate('productId')
+        .populate('sellerId')
+
+    res.json({ status: 'success', data: { auctions }, error: null })
+})
 
 /**
  * Retrieves all auctions for the authenticated user.
@@ -29,12 +31,23 @@ const getAllAuctions = asyncWrapper(
  * @param {Function} next - The next middleware function.
  * @returns {Promise<void>}
  */
-const getAllAuctionsForUser = asyncWrapper(
-    async (req, res, next) => {
-        const auctions = await Auction.find({ sellerId: req.decodedToken.id }, { "__v": false });
-        res.json({ status:  httpStatusText.SUCCESS, data: { auctions }, error: null });
-    }
-);
+const getAllAuctionsForUser = asyncWrapper(async (req, res) => {
+    const limit = req.query.limit || 6
+    const page = req.query.page || 1
+    const skip = (page - 1) * limit
+    const auctions = await Auction.find(
+        { sellerId: req.decodedToken.id },
+        { __v: false }
+    )
+        .limit(limit)
+        .skip(skip)
+        .populate('productId')
+    res.json({
+        status: httpStatusText.SUCCESS,
+        data: { auctions },
+        error: null,
+    })
+})
 
 /**
  * Retrieves an auction by its ID.
@@ -43,16 +56,20 @@ const getAllAuctionsForUser = asyncWrapper(
  * @param {Function} next - The next middleware function.
  * @returns {Promise<void>}
  */
-const getAction = asyncWrapper(
-    async (req, res, next) => {
-        const action = await Action.findOne({ productId: req.params.product_Id });
-        if (!action) {
-            const error = appError.create('Action not found', 404, httpStatusText.FAIL);
-            return next(error);
-        }
-        res.json({ status: httpStatusText.SUCCESS, data: { action }, error: null });
+const getAuction = asyncWrapper(async (req, res, next) => {
+    const action = await Auction.findOne({ _id: req.params.auctionId })
+        .populate('productId')
+        .populate('sellerId')
+    if (!action) {
+        const error = appError.create(
+            'Action not found',
+            404,
+            httpStatusText.FAIL
+        )
+        return next(error)
     }
-);
+    res.json({ status: httpStatusText.SUCCESS, data: { action }, error: null })
+})
 
 /**
  * Creates a new auction and associated product.
@@ -61,39 +78,42 @@ const getAction = asyncWrapper(
  * @param {Function} next - The next middleware function.
  * @returns {Promise<void>}
  */
-const createAction = asyncWrapper(
-    async (req, res, next) => {
-        const product = {
-            name: req.body.name,
-            initialPrice: req.body.initialPrice,
-            maxPrice: req.body.maxPrice,
-            quantity: req.body.quantity,
-            description: req.body.description,
-            categoryId: req.body.categoryId
-        };
-        let newProduct = new Product(product);
-        await newProduct.save();
-
-        const images = req.files;
-        for (let i = 0; i < images.length; i++) {
-            const newImage = new Image({ productId: newProduct._id, url: images[i].filename });
-            await newImage.save();
-        }
-
-        const auction = {
-            startDate: req.body.startDate,
-            endDate: req.body.endDate,
-            productId: newProduct._id,
-            price: req.body.maxPrice,
-            sellerId: req.decodedToken.id
-        };
-
-        const newAction = new Auction(auction);
-        await newAction.save();
-
-        res.status(201).json({ status: httpStatusText.SUCCESS, data: { newAction }, error: null });
+const createAuction = asyncWrapper(async (req, res) => {
+    const product = {
+        name: req.body.name,
+        initialPrice: req.body.initialPrice,
+        maxPrice: req.body.maxPrice,
+        quantity: req.body.quantity,
+        description: req.body.description,
     }
-);
+
+    const images = []
+    const imagesFiles = req.files
+    for (let i = 0; i < imagesFiles.length; i++) {
+        images.push(imagesFiles[i].filename)
+    }
+
+    product.images = images
+    let newProduct = new Product(product)
+    await newProduct.save()
+
+    const auction = {
+        startDate: req.body.startDate,
+        endDate: req.body.endDate,
+        productId: newProduct._id,
+        price: req.body.maxPrice,
+        sellerId: req.decodedToken.id,
+    }
+
+    const newAction = new Auction(auction)
+    await newAction.save()
+
+    res.status(201).json({
+        status: httpStatusText.SUCCESS,
+        data: { newAction },
+        error: null,
+    })
+})
 
 /**
  * Updates an auction.
@@ -102,13 +122,33 @@ const createAction = asyncWrapper(
  * @param {Function} next - The next middleware function.
  * @returns {Promise<void>}
  */
-const updateAction = asyncWrapper(
-    async (req, res, next) => {
-        const actionId = req.params.actionId;
-        await Auction.updateOne({ _id: actionId }, { $set: { ...req.body } });
-        return res.status(200).json({ status: httpStatusText.SUCCESS, data: null, error: null });
+const updateAuction = asyncWrapper(async (req, res, next) => {
+    const auctionId = req.params.auctionId
+    const auction = await Auction.findById(auctionId)
+
+    if (!auction) {
+        const error = appError.create(
+            'Action not found',
+            404,
+            httpStatusText.FAIL
+        )
+        return next(error)
     }
-);
+
+    if (auction.sellerId != req.decodedToken.id) {
+        const error = appError.create(
+            'User not authorized',
+            401,
+            httpStatusText.FAIL
+        )
+        return next(error)
+    }
+
+    await Auction.updateOne({ _id: auctionId }, { $set: { ...req.body } })
+    return res
+        .status(200)
+        .json({ status: httpStatusText.SUCCESS, data: null, error: null })
+})
 
 /**
  * Deletes an auction.
@@ -117,19 +157,39 @@ const updateAction = asyncWrapper(
  * @param {Function} next - The next middleware function.
  * @returns {Promise<void>}
  */
-const deleteAction = asyncWrapper(
-    async (req, res, next) => {
-        const actionId = req.params.actionId;
-        await Auction.deleteOne({ _id: actionId });
-        res.status(200).json({ status: httpStatusText.SUCCESS, data: null, error: null });
+const deleteAuction = asyncWrapper(async (req, res, next) => {
+    const auctionId = req.params.auctionId
+    const auction = await Auction.findById(auctionId)
+    if (!auction) {
+        const error = appError.create(
+            'Action not found',
+            404,
+            httpStatusText.FAIL
+        )
+        return next(error)
     }
-);
+    if (auction.sellerId != req.decodedToken.id) {
+        const error = appError.create(
+            'User not authorized',
+            401,
+            httpStatusText.FAIL
+        )
+        return next(error)
+    }
+    await Product.deleteOne(auction.productId)
+    await Auction.deleteOne({ _id: auctionId })
+    res.status(200).json({
+        status: httpStatusText.SUCCESS,
+        data: null,
+        error: null,
+    })
+})
 
 module.exports = {
     getAllAuctions,
     getAllAuctionsForUser,
-    getAction,
-    createAction,
-    updateAction,
-    deleteAction
-};
+    getAuction,
+    createAuction,
+    updateAuction,
+    deleteAuction,
+}

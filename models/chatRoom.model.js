@@ -1,16 +1,15 @@
-const mongoose = require('mongoose');
+const mongoose = require('mongoose')
 const chatRoomSchema = new mongoose.Schema({
-    user1:{
+    user1: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true
+        required: true,
+        ref: 'User',
     },
-    user2:{
+    user2: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true
-    }
-
-
+        required: true,
+        ref: 'User',
+    },
 })
 
-
-module.exports = mongoose.model('ChatRoom',chatRoomSchema);
+module.exports = mongoose.model('ChatRoom', chatRoomSchema)

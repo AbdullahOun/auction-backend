@@ -1,23 +1,19 @@
-const mongoose = require('mongoose');
+const mongoose = require('mongoose')
 const bidSchema = new mongoose.Schema({
-    buyerId:{
+    buyerId: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true
+        required: true,
+        ref: 'User',
     },
-    auctionId:{
+    auctionId: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true
-        // ,
-        // ref: 'Auction'
+        required: true,
+        ref: 'Auction',
     },
-    price:{
+    price: {
         type: Number,
-        required: true
-    }
-    
-
-
+        required: true,
+    },
 })
 
-
-module.exports = mongoose.model('Bid',bidSchema);
+module.exports = mongoose.model('Bid', bidSchema)

@@ -1,33 +1,55 @@
-const mongoose = require('mongoose');
-const validator = require('validator');
+const mongoose = require('mongoose')
+const validator = require('validator')
+const addressSchema = new mongoose.Schema({
+    country: {
+        type: String,
+        required: false,
+    },
+    city: {
+        type: String,
+        required: false,
+    },
+    street: {
+        type: String,
+        required: false,
+    },
+    houseNumber: {
+        type: String,
+        required: false,
+    },
+})
+
 const userSchema = mongoose.Schema({
     firstName: {
         type: String,
-        required: true
+        required: true,
     },
     lastName: {
         type: String,
-        required: true
+        required: true,
     },
     phone: {
         type: Number,
-        required: true
+        required: true,
     },
     email: {
-        type:String,
+        type: String,
         required: true,
         unique: true,
-        validate: [validator.isEmail, 'Please enter a valid email']
-        // match: [/.+@.+\..+/, 'Please enter a valid email']
+        validate: [validator.isEmail, 'Please enter a valid email'],
     },
     password: {
         type: String,
-        required: true
+        required: true,
     },
     image: {
         type: String,
-        required: false
-    }
+        required: false,
+    },
+    address: {
+        type: addressSchema,
+        required: false,
+    },
 })
 
-module.exports = mongoose.model('User',userSchema);
+module.exports = mongoose.model('User', userSchema)

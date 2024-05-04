@@ -1,17 +1,15 @@
-const express = require('express');
-const bidController = require('../controllers/bids.controller');
-const verifyToken = require('../middlewares/verifyToken');
-const router = express.Router();
+const express = require('express')
+const bidController = require('../controllers/bids.controller')
+const verifyToken = require('../middlewares/verifyToken')
+const router = express.Router()
 
-router.route('/')
-    .post(verifyToken,bidController.createBid);
+router.route('/').post(verifyToken, bidController.createBid)
 
-router.route('/:auction_Id')
-    .get(bidController.getAllBids);
+router.route('/:auctionId').get(bidController.getAllBids)
 
-router.route('/:bidId')
+router
+    .route('/:bidId')
     .get(bidController.getBid)
-    .delete(verifyToken,bidController.deleteBid);
+    .delete(verifyToken, bidController.deleteBid)
 
-
-module.exports = router;
+module.exports = router
