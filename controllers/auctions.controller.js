@@ -1,4 +1,3 @@
-const { validationResult } = require('express-validator');
 const Auction = require('../models/auction.model');
 const Product = require('../models/product.model');
 const Image = require('../models/image.model');
@@ -33,7 +32,7 @@ const getAllAuctions = asyncWrapper(
 const getAllAuctionsForUser = asyncWrapper(
     async (req, res, next) => {
         const auctions = await Auction.find({ sellerId: req.decodedToken.id }, { "__v": false });
-        res.json({ status: "success", data: { auctions }, error: null });
+        res.json({ status:  httpStatusText.SUCCESS, data: { auctions }, error: null });
     }
 );
 
