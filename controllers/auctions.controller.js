@@ -105,8 +105,8 @@ const createAction = asyncWrapper(
 const updateAction = asyncWrapper(
     async (req, res, next) => {
         const actionId = req.params.actionId;
-        let updatedAction = await Auction.updateOne({ _id: actionId }, { $set: { ...req.body } });
-        return res.status(200).json({ status: httpStatusText.SUCCESS, data: { updatedAction }, error: null });
+        await Auction.updateOne({ _id: actionId }, { $set: { ...req.body } });
+        return res.status(200).json({ status: httpStatusText.SUCCESS, data: null, error: null });
     }
 );
 

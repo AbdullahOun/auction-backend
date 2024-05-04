@@ -60,8 +60,8 @@ const createChatRoom = asyncWrapper(
 const updateChatRoom = asyncWrapper(
     async (req, res, next) => {
         const chatRoomid = req.params.chatRoomid;
-        let updatedChatRoom = await ChatRoom.updateOne({ _id: chatRoomid }, { $set: { ...req.body } });
-        return res.status(200).json({ status: httpStatusText.SUCCESS, data: { updatedChatRoom }, error: null });
+        await ChatRoom.updateOne({ _id: chatRoomid }, { $set: { ...req.body } });
+        return res.status(200).json({ status: httpStatusText.SUCCESS, data: null, error: null });
     }
 );
 
