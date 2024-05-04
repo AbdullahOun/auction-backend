@@ -28,11 +28,6 @@ const userSchema = mongoose.Schema({
         type: String,
         required: false
     }
-
-
-
-
-
 })
 
 module.exports = mongoose.model('User',userSchema);

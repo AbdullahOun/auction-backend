@@ -40,9 +40,7 @@ app.all('*',(req,res,next)=>{
 });
 
 app.use((error,req, res, next)=>{
-
     res.status(error.statusCode || 500).json({status: error.statusText || httpStatusText.ERROR, message: error.message, code: error.statusCode || 500, data:null});
-
 })
 mongoose.connect(url).then(()=> {
     console.log('mongodb server started');

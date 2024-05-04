@@ -1,6 +1,6 @@
 const SUCCESS = 'SUCCESS';
-const FAIL = 'fail';
-const ERROR = 'error';
+const FAIL = 'FAIL';
+const ERROR = 'ERROR';
 module.exports = {
     SUCCESS,
     FAIL,
