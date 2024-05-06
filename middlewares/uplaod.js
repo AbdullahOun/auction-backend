@@ -1,6 +1,10 @@
 const multer = require('multer')
-const appError = require('../utils/appError')
-const httpStatusText = require('../utils/httpStatusText')
+const AppError = require('../utils/appError')
+const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
+
+/**
+ * Disk storage configuration for multer.
+ */
 const diskStorage = multer.diskStorage({
     destination: 'uploads',
     filename: function (req, file, cb) {
@@ -10,20 +14,30 @@ const diskStorage = multer.diskStorage({
     },
 })
 
+/**
+ * File filter function for multer to filter image files.
+ * @param {Object} req - The request object.
+ * @param {Object} file - The file object.
+ * @param {Function} cb - The callback function.
+ */
 const fileFilter = (req, file, cb) => {
     const imageType = file.mimetype.split('/')[0]
     if (imageType === 'image') {
         return cb(null, true)
     } else {
-        const error = appError.create(
-            'Only images are allowed',
-            400,
-            httpStatusText.FAIL
+        return cb(
+            new AppError(
+                MODEL_MESSAGES.file.onlyImages,
+                HTTP_STATUS_CODES.BAD_REQUEST
+            ),
+            false
         )
-        return cb(error, false)
     }
 }
 
+/**
+ * Multer upload configuration.
+ */
 const upload = multer({
     storage: diskStorage,
     fileFilter,
