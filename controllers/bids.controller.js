@@ -1,93 +1,104 @@
 const Bid = require('../models/bid.model')
-const httpStatusText = require('../utils/httpStatusText')
 const asyncWrapper = require('../middlewares/asyncWrapper')
-const appError = require('../utils/appError')
+const AppResponse = require('../utils/appResponse')
+const AppError = require('../utils/appError')
+const paginate = require('../utils/paginate')
+const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
 
 /**
- * Retrieves all bids for a specific auction.
+ * Get all bids for a specific auction with pagination.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const getAllBids = asyncWrapper(async (req, res, next) => {
-    const limit = req.query.limit || 6
-    const page = req.query.page || 1
-    const skip = (page - 1) * limit
-    const bids = await Bid.find(
-        { auctionId: req.params.auctionId },
-        { __v: false }
-    )
+    const { limit, skip } = paginate(req)
+    const auctionId = req.params.auctionId
+
+    const bids = await Bid.find({ auction: auctionId })
+        .select('-__v')
         .limit(limit)
         .skip(skip)
-        .populate('buyerId')
-    res.json({ status: httpStatusText.SUCCESS, data: { bids }, error: null })
+        .populate('auction')
+        .populate('buyer')
+
+    res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bids }))
 })
 
 /**
- * Retrieves a bid by its ID.
+ * Get details of a specific bid.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const getBid = asyncWrapper(async (req, res, next) => {
-    const bid = await Bid.findById(req.params.bidId)
+    const bidId = req.params.bidId
+
+    const bid = await Bid.findById(bidId)
+        .select('-__v')
+        .populate('auction')
+        .populate('buyer')
+
     if (!bid) {
-        const error = appError.create('Bid not found', 404, httpStatusText.FAIL)
-        return next(error)
+        return next(
+            new AppError(
+                MODEL_MESSAGES.bid.notFound,
+                HTTP_STATUS_CODES.NOT_FOUND
+            )
+        )
     }
-    res.json({ status: httpStatusText.SUCCESS, data: { bid }, error: null })
+    res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bid }))
 })
 
 /**
- * Creates a new bid.
+ * Create a new bid.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
- * @returns {Promise<void>}
  */
 const createBid = asyncWrapper(async (req, res) => {
+    const decodedId = req.decodedToken.id
+
     const newBid = new Bid({
-        auctionId: req.body.auctionId,
+        auction: req.body.auctionId,
         price: req.body.price,
-        buyerId: req.decodedToken.id,
+        buyer: decodedId,
     })
+
     await newBid.save()
-    res.status(201).json({
-        status: httpStatusText.SUCCESS,
-        data: { newBid },
-        error: null,
-    })
+    return res
+        .status(HTTP_STATUS_CODES.CREATED)
+        .json(new AppResponse({ bid: newBid }))
 })
 
 /**
- * Deletes a bid by its ID.
+ * Delete a specific bid.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const deleteBid = asyncWrapper(async (req, res, next) => {
     const bidId = req.params.bidId
-    const bid = await Bid.findById(bidId)
+    const bid = await Bid.findById(bidId).select(['_id', 'buyer'])
     if (!bid) {
-        const error = appError.create('Bid not found', 404, httpStatusText.FAIL)
-        return next(error)
-    }
-    if (bid.buyerId != req.decodedToken.id) {
-        const error = appError.create(
-            'User not authorized',
-            401,
-            httpStatusText.FAIL
+        return next(
+            new AppError(
+                MODEL_MESSAGES.bid.notFound,
+                HTTP_STATUS_CODES.NOT_FOUND
+            )
         )
-        return next(error)
     }
+
+    if (bid.buyer != req.decodedToken.id) {
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.unauthorized,
+                HTTP_STATUS_CODES.UNAUTHORIZED
+            )
+        )
+    }
+
     await Bid.deleteOne({ _id: bidId })
-    res.status(200).json({
-        status: httpStatusText.SUCCESS,
-        data: null,
-        error: null,
-    })
+    return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse(null))
 })
 
 module.exports = {
