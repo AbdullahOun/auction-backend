@@ -1,28 +1,39 @@
 const jwt = require('jsonwebtoken')
-const appError = require('../utils/appError')
-const httpStatusText = require('../utils/httpStatusText')
+const AppError = require('../utils/appError')
+const { HTTP_STATUS_CODES, MODEL_MESSAGES } = require('../utils/constants')
 
-//TODO: Create token logic must be here
-
+/**
+ * Middleware to verify JWT token from request headers.
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ * @param {Function} next - The next middleware function.
+ * @returns {Function} - The next middleware function or an error.
+ */
 const verifyToken = (req, res, next) => {
     const authHeader =
         req.headers['Authorization'] || req.headers['authorization']
+
     if (!authHeader) {
-        const error = appError.create(
-            'token is required',
-            400,
-            httpStatusText.FAIL
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.tokenRequired,
+                HTTP_STATUS_CODES.UNAUTHORIZED
+            )
         )
-        return next(error)
     }
     const token = authHeader.split(' ')[1]
+
     try {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET_KEY)
         req.decodedToken = decodedToken
         return next()
     } catch (err) {
-        const error = appError.create('Invalid token', 401, httpStatusText.FAIL)
-        return next(error)
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.invalidToken,
+                HTTP_STATUS_CODES.UNAUTHORIZED
+            )
+        )
     }
 }
 
