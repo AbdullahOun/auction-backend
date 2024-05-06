@@ -17,12 +17,15 @@ const auctionsRouter = require('./routes/auctions.route')
 const messagesRouter = require('./routes/messages.route')
 const chatRoomsRouter = require('./routes/chatRooms.route')
 const bidsRouter = require('./routes/bids.route')
+const imagesRouter = require('./routes/images.route')
 app.use('/api/products', productsRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/auctions', auctionsRouter)
 app.use('/api/messages', messagesRouter)
 app.use('/api/chat-rooms', chatRoomsRouter)
 app.use('/api/bids', bidsRouter)
+app.use('/api/images', imagesRouter)
+
 app.all('*', (req, res, next) => {
     res.status(404).json({
         status: httpStatusText.ERROR,
