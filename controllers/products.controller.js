@@ -1,60 +1,85 @@
 const Product = require('../models/product.model')
-const httpStatusText = require('../utils/httpStatusText')
 const asyncWrapper = require('../middlewares/asyncWrapper')
-const appError = require('../utils/appError')
+const AppError = require('../utils/appError')
+const AppResponse = require('../utils/appResponse')
 const Auction = require('../models/auction.model')
+const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
 
 /**
- * Retrieves a product by its ID.
+ * Get a specific product.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const getProduct = asyncWrapper(async (req, res, next) => {
-    const product = await Product.findById(req.params.productId)
-    if (!product) {
-        const error = appError.create(
-            'Product not found',
-            404,
-            httpStatusText.FAIL
+    const productId = req.params.productId
+
+    const auction = await Auction.findOne({ product: productId })
+
+    if (!auction) {
+        return next(
+            new AppError(
+                MODEL_MESSAGES.auction.notFound,
+                HTTP_STATUS_CODES.NOT_FOUND
+            )
         )
-        return next(error)
     }
-    res.json({ status: httpStatusText.SUCCESS, data: { product }, error: null })
+
+    if (auction.seller != req.decodedToken.id) {
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.unauthorized,
+                HTTP_STATUS_CODES.FORBIDDEN
+            )
+        )
+    }
+
+    const product = await Product.findById(productId).select('-__v')
+
+    if (!product) {
+        return next(
+            new AppError(
+                MODEL_MESSAGES.product.notFound,
+                HTTP_STATUS_CODES.NOT_FOUND
+            )
+        )
+    }
+
+    res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ product }))
 })
 
 /**
- * Updates a product.
+ * Update details of a specific product.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const updateProduct = asyncWrapper(async (req, res, next) => {
     const productId = req.params.productId
-    const auction = await Auction.findOne({ productId: productId })
+    const decodedId = req.decodedToken.id
+    const auction = await Auction.findOne({ product: productId })
+
     if (!auction) {
-        const error = appError.create(
-            "Product's Auction not found",
-            404,
-            httpStatusText.FAIL
+        return next(
+            new AppError(
+                MODEL_MESSAGES.auction.notFound,
+                HTTP_STATUS_CODES.NOT_FOUND
+            )
         )
-        return next(error)
     }
 
-    if (auction.sellerId != req.decodedToken.id) {
-        const error = appError.create(
-            'User not authorized',
-            401,
-            httpStatusText.FAIL
+    if (auction.seller != decodedId) {
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.unauthorized,
+                HTTP_STATUS_CODES.FORBIDDEN
+            )
         )
-        return next(error)
     }
+
     await Product.updateOne({ _id: productId }, { $set: { ...req.body } })
-    return res
-        .status(200)
-        .json({ status: httpStatusText.SUCCESS, data: null, error: null })
+
+    res.status(HTTP_STATUS_CODES.OK).json(new AppResponse(null))
 })
 
 module.exports = {
