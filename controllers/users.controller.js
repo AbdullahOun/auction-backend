@@ -1,41 +1,37 @@
 const User = require('../models/user.model')
 const asyncWrapper = require('../middlewares/asyncWrapper')
-const httpStatusText = require('../utils/httpStatusText')
-const appError = require('../utils/appError')
+const AppError = require('../utils/appError')
 const generateJWT = require('../utils/generateJWT')
 const { hashPassword, verifyPassword } = require('../utils/encryption')
-const { countDocuments } = require('../models/auction.model')
-require('dotenv').config()
+const AppResponse = require('../utils/appResponse')
+const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
 
 /**
- * Registers a new user.
+ * Register a new user.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const register = asyncWrapper(async (req, res, next) => {
-    /**
-     * @type {string} firstName - The first name of the user.
-     * @type {string} lastName - The last name of the user.
-     * @type {string} email - The email of the user.
-     * @type {string} phone - The phone number of the user.
-     * @type {string} password - The password of the user.
-     */
     const { firstName, lastName, email, phone, password } = req.body
-    const oldUser = await User.findOne({ email: email })
+
+    const oldUser = await User.findOne({
+        $or: [{ email: email }, { phone: phone }],
+    })
 
     if (oldUser) {
-        const error = appError.create(
-            'User already exists',
-            400,
-            httpStatusText.FAIL
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.alreadyExists,
+                HTTP_STATUS_CODES.BAD_REQUEST
+            )
         )
-        next(error)
     }
 
+    // Hash the password before saving it to the database
     const hashedPassword = hashPassword(password)
 
+    // Create a new user instance
     const newUser = new User({
         firstName,
         lastName,
@@ -50,85 +46,79 @@ const register = asyncWrapper(async (req, res, next) => {
         },
     })
 
+    // Save the new user to the database
     await newUser.save()
-    res.status(201).json({
-        status: httpStatusText.SUCCESS,
-        data: { user: newUser },
-        error: null,
-    })
+
+    res.status(HTTP_STATUS_CODES.CREATED).json(
+        new AppResponse({ user: newUser })
+    )
 })
 
 /**
- * Logs in an existing user.
+ * Login a user.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const login = asyncWrapper(async (req, res, next) => {
-    /**
-     * @type {string} email - The email of the user.
-     * @type {string} password - The password of the user.
-     */
     const { email, password } = req.body
+
+    // Find the user by email
     const user = await User.findOne({ email: email })
 
     if (!user) {
-        const error = appError.create(
-            'User not found',
-            400,
-            httpStatusText.FAIL
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.notFound,
+                HTTP_STATUS_CODES.NOT_FOUND
+            )
         )
-        next(error)
-        return
     }
 
+    // Verify the password
     const isMatch = verifyPassword(password, user.password)
     if (!isMatch) {
-        const error = appError.create(
-            'Invalid password',
-            401,
-            httpStatusText.FAIL
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.invalidPassword,
+                HTTP_STATUS_CODES.UNAUTHORIZED
+            )
         )
-        next(error)
-        return
     }
 
+    // Generate JWT token for the user
     const token = await generateJWT({ email: user.email, id: user._id })
-    res.status(200).json({
-        status: httpStatusText.SUCCESS,
-        data: { token },
-        error: null,
-    })
+
+    res.status(200).json(new AppResponse({ token }))
 })
 
 /**
- * Update an existing user
+ * Update an existing user.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
- * @returns {Promise<void>}
  */
 const updateUser = asyncWrapper(async (req, res, next) => {
-    const id = req.decodedToken.id
-    const user = await User.findOne({ _id: id })
+    const decodedId = req.decodedToken.id
+
+    // Find the user by ID
+    const user = await User.findById(decodedId)
     if (!user) {
-        const error = appError.create(
-            'User not found',
-            400,
-            httpStatusText.FAIL
+        return next(
+            new AppError(
+                MODEL_MESSAGES.user.notFound,
+                HTTP_STATUS_CODES.NOT_FOUND
+            )
         )
-        next(error)
-        return
     }
+
+    // Update the user with the request body
     const body = req.body
-    await User.updateOne({ _id: id }, { ...body })
-    res.status(200).json({
-        status: httpStatusText.SUCCESS,
-        data: null,
-        error: null,
-    })
+    await User.updateOne({ _id: decodedId }, { ...body })
+
+    res.status(204).json(new AppResponse(null))
 })
+
 module.exports = {
     register,
     login,

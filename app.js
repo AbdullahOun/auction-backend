@@ -1,43 +1,73 @@
 const express = require('express')
 const cors = require('cors')
-const app = express()
-require('dotenv').config()
-const httpStatusText = require('./utils/httpStatusText')
-const port = process.env.PORT || 4000
 const mongoose = require('mongoose')
 const path = require('path')
-const url = process.env.MONGO_URL
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+require('dotenv').config()
 
-app.use(cors())
-app.use(express.json())
+// Import routers
 const productsRouter = require('./routes/products.route')
 const usersRouter = require('./routes/users.route')
 const auctionsRouter = require('./routes/auctions.route')
 const messagesRouter = require('./routes/messages.route')
 const chatRoomsRouter = require('./routes/chatRooms.route')
 const bidsRouter = require('./routes/bids.route')
-app.use('/api/products', productsRouter)
+const imagesRouter = require('./routes/images.route')
+
+const app = express()
+const port = process.env.PORT || 4000
+const url = process.env.MONGO_URL
+// Serve static files from the 'uploads' directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
+app.use(cors())
+app.use(express.json())
+
+// Import custom utilities and constants
+const AppError = require('./utils/appError')
+const { HTTP_STATUS_CODES } = require('./utils/constants')
+
+// Route definitions
 app.use('/api/users', usersRouter)
 app.use('/api/auctions', auctionsRouter)
+app.use('/api/products', productsRouter)
 app.use('/api/messages', messagesRouter)
 app.use('/api/chat-rooms', chatRoomsRouter)
 app.use('/api/bids', bidsRouter)
+app.use('/api/images', imagesRouter)
+
+/**
+ * Catch-all route handler for routes not found.
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @param {function} next - The next middleware function.
+ */
 app.all('*', (req, res, next) => {
-    res.status(404).json({
-        status: httpStatusText.ERROR,
-        message: 'This resource is not available',
-    })
+    res.status(HTTP_STATUS_CODES.NOT_FOUND).json(
+        new AppError('Resource not found', HTTP_STATUS_CODES.NOT_FOUND)
+    )
 })
 
+/**
+ * Global error handler middleware.
+ * @param {Error} error - The error object.
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @param {function} next - The next middleware function.
+ */
 app.use((error, req, res, next) => {
-    res.status(error.statusCode || 500).json({
-        status: error.statusText || httpStatusText.ERROR,
-        error: error.message,
-        data: null,
-    })
+    res.status(
+        error.statusCode || HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
+    ).json(
+        error ??
+            new AppError(
+                'Unknown Error',
+                HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
+            )
+    )
 })
+
+// Connect to MongoDB and start the server
 mongoose.connect(url).then(() => {
-    console.log('mongodb server started')
+    console.log('MongoDB server started')
     app.listen(port, () => console.log(`Server running at ${port}!`))
 })
