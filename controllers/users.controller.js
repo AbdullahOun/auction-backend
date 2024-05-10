@@ -5,21 +5,36 @@ const generateJWT = require('../utils/generateJWT')
 const { hashPassword, verifyPassword } = require('../utils/encryption')
 const AppResponse = require('../utils/appResponse')
 const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
+const registerSchema = require('../utils/validation/registerSchema')
+const loginSchema = require('../utils/validation/loginSchema')
+const userSchema = require('../utils/validation/userSchema')
 
 /**
- * Register a new user.
+ * Register a new user middlwares hirerchy
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
  */
-const register = asyncWrapper(async (req, res, next) => {
-    const { firstName, lastName, email, phone, password } = req.body
+const isValidRegister = asyncWrapper(async (req, res, next) => {
+    try {
+        const result = await registerSchema.validateAsync({ ...req.body })
+        req.body = result
+        next()
+    } catch (err) {
+        next(
+            new AppError(err.details[0].message, HTTP_STATUS_CODES.BAD_REQUEST)
+        )
+    }
+})
 
-    const oldUser = await User.findOne({
+const isDuplicateUser = asyncWrapper(async (req, res, next) => {
+    console.log('inIsDup')
+    const { email, phone } = req.body
+    const user = await User.findOne({
         $or: [{ email: email }, { phone: phone }],
     })
 
-    if (oldUser) {
+    if (user) {
         return next(
             new AppError(
                 MODEL_MESSAGES.user.alreadyExists,
@@ -27,12 +42,15 @@ const register = asyncWrapper(async (req, res, next) => {
             )
         )
     }
+    return next()
+})
 
-    // Hash the password before saving it to the database
+const register = asyncWrapper(async (req, res, next) => {
+    const { firstName, lastName, email, phone, password } = req.body
     const hashedPassword = hashPassword(password)
 
     // Create a new user instance
-    const newUser = new User({
+    const user = new User({
         firstName,
         lastName,
         email,
@@ -45,27 +63,43 @@ const register = asyncWrapper(async (req, res, next) => {
             houseNumber: '',
         },
     })
+    await user.save()
 
-    // Save the new user to the database
-    await newUser.save()
+    const response = {
+        _id: newUser._id,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: newUser.email,
+        phone: newUser.phone,
+        address: newUser.address,
+    }
 
     res.status(HTTP_STATUS_CODES.CREATED).json(
-        new AppResponse({ user: newUser })
+        new AppResponse({ user: response })
     )
 })
 
 /**
- * Login a user.
+ * Login a user middlwares hirerchy
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
  */
-const login = asyncWrapper(async (req, res, next) => {
-    const { email, password } = req.body
+const isValidLogin = asyncWrapper(async (req, res, next) => {
+    try {
+        const result = await loginSchema.validateAsync({ ...req.body })
+        req.body = result
+        next()
+    } catch (err) {
+        next(
+            new AppError(err.details[0].message, HTTP_STATUS_CODES.BAD_REQUEST)
+        )
+    }
+})
 
-    // Find the user by email
+const isUserEmailExists = asyncWrapper(async (req, res, next) => {
+    const { email } = req.body
     const user = await User.findOne({ email: email })
-
     if (!user) {
         return next(
             new AppError(
@@ -74,8 +108,13 @@ const login = asyncWrapper(async (req, res, next) => {
             )
         )
     }
+    req.user = user
+    next()
+})
 
-    // Verify the password
+const isPasswordCorrect = asyncWrapper(async (req, res, next) => {
+    const { password } = req.body
+    const user = req.user
     const isMatch = verifyPassword(password, user.password)
     if (!isMatch) {
         return next(
@@ -85,23 +124,24 @@ const login = asyncWrapper(async (req, res, next) => {
             )
         )
     }
+    next()
+})
 
-    // Generate JWT token for the user
+const login = asyncWrapper(async (req, res, next) => {
+    const user = req.user
     const token = await generateJWT({ email: user.email, id: user._id })
-
-    res.status(200).json(new AppResponse({ token }))
+    res.status(200).json(new AppResponse({ token, userId: user._id }))
 })
 
 /**
- * Update an existing user.
+ * Update an existing user hirerchy of middlewares.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.
  */
-const updateUser = asyncWrapper(async (req, res, next) => {
+const isUserIdExists = asyncWrapper(async (req, res, next) => {
     const decodedId = req.decodedToken.id
 
-    // Find the user by ID
     const user = await User.findById(decodedId)
     if (!user) {
         return next(
@@ -111,16 +151,37 @@ const updateUser = asyncWrapper(async (req, res, next) => {
             )
         )
     }
+    next()
+})
 
-    // Update the user with the request body
+const isValidUpdate = asyncWrapper(async (req, res, next) => {
+    try {
+        const result = await userSchema.validateAsync({ ...req.body })
+        req.body = result
+        next()
+    } catch (err) {
+        next(
+            new AppError(err.details[0].message, HTTP_STATUS_CODES.BAD_REQUEST)
+        )
+    }
+})
+
+const update = asyncWrapper(async (req, res, next) => {
+    const decodedId = req.decodedToken.id
     const body = req.body
     await User.updateOne({ _id: decodedId }, { ...body })
-
     res.status(204).json(new AppResponse(null))
 })
 
 module.exports = {
+    isValidRegister,
+    isDuplicateUser,
     register,
+    isValidLogin,
+    isUserEmailExists,
+    isPasswordCorrect,
     login,
-    updateUser,
+    isUserIdExists,
+    isValidUpdate,
+    update,
 }

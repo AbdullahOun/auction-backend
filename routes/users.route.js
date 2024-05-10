@@ -13,20 +13,34 @@ router
      * PATCH request to update user information.
      * Requires authentication.
      */
-    .patch(verifyToken, usersController.updateUser)
+    .patch(
+        verifyToken,
+        usersController.isUserIdExists,
+        usersController.isValidUpdate,
+        usersController.update
+    )
 
 router
     .route('/register')
     /**
      * POST request to register a new user.
      */
-    .post(usersController.register)
+    .post(
+        usersController.isValidRegister,
+        usersController.isDuplicateUser,
+        usersController.register
+    )
 
 router
     .route('/login')
     /**
      * POST request to authenticate and log in a user.
      */
-    .post(usersController.login)
+    .post(
+        usersController.isValidLogin,
+        usersController.isUserEmailExists,
+        usersController.isPasswordCorrect,
+        usersController.login
+    )
 
 module.exports = router
