@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const mongoose = require('mongoose')
 const path = require('path')
+const { Server } = require('socket.io')
 require('dotenv').config()
 
 // Import routers
@@ -12,10 +13,15 @@ const messagesRouter = require('./routes/messages.route')
 const chatRoomsRouter = require('./routes/chatRooms.route')
 const bidsRouter = require('./routes/bids.route')
 const imagesRouter = require('./routes/images.route')
+const Chat = require('./socket-handlers/chat')
 
+const http = require('http')
 const app = express()
 const port = process.env.PORT || 4000
 const url = process.env.MONGO_URL
+const httpServer = http.createServer(app) // Create HTTP server
+const io = new Server(httpServer) // Create Socket.IO server
+
 // Serve static files from the 'uploads' directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
@@ -25,6 +31,7 @@ app.use(express.json())
 // Import custom utilities and constants
 const AppError = require('./utils/appError')
 const { HTTP_STATUS_CODES } = require('./utils/constants')
+const Auction = require('./socket-handlers/auction')
 
 // Route definitions
 app.use('/api/users', usersRouter)
@@ -63,5 +70,8 @@ app.use((error, req, res, next) => {
 // Connect to MongoDB and start the server
 mongoose.connect(url).then(() => {
     console.log('MongoDB server started')
-    app.listen(port, () => console.log(`Server running at ${port}!`))
+    httpServer.listen(port, () => console.log(`Server running at ${port}!`))
 })
+
+new Chat(io)
+new Auction(io)
