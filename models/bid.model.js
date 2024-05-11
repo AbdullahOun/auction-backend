@@ -56,13 +56,18 @@ const bidSchema = new mongoose.Schema(
             required: true,
             validate: {
                 validator: function (value) {
-                    return value > 0
+                    return value > 1
                 },
-                message: 'Price must be greater than 0',
+                message: 'Price must be greater than 1',
             },
         },
     },
-    { timestamps: true }
+    {
+        /**
+         * Adds createdAt and updatedAt fields to the schema.
+         */
+        timestamps: true,
+    }
 )
 
 module.exports = mongoose.model('Bid', bidSchema)
