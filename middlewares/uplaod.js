@@ -3,7 +3,7 @@ const AppError = require('../utils/appError')
 const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
 
 /**
- * Disk storage configuration for multer.
+ * @description Disk storage configuration for multer.
  */
 const diskStorage = multer.diskStorage({
     destination: 'uploads',
@@ -15,7 +15,7 @@ const diskStorage = multer.diskStorage({
 })
 
 /**
- * File filter function for multer to filter image files.
+ * @description File filter function for multer to filter image files.
  * @param {Object} req - The request object.
  * @param {Object} file - The file object.
  * @param {Function} cb - The callback function.
@@ -36,11 +36,11 @@ const fileFilter = (req, file, cb) => {
 }
 
 /**
- * Multer upload configuration.
+ * @description Multer upload configuration.
  */
 const upload = multer({
     storage: diskStorage,
     fileFilter,
 })
 
-module.exports = { upload }
+module.exports = upload
