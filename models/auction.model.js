@@ -73,8 +73,23 @@ const auctionSchema = new mongoose.Schema(
          * Adds createdAt and updatedAt fields to the schema.
          */
         timestamps: true,
+        toJSON: { virtuals: true },
     }
 )
+
+auctionSchema.virtual('status').get(function () {
+    const now = new Date()
+    const startDate = this.startDate
+    const endDate = this.endDate
+
+    if (now < startDate) {
+        return 'pending'
+    } else if (now >= startDate && now <= endDate) {
+        return 'running'
+    } else {
+        return 'ended'
+    }
+})
 
 // Define a unique index for the product field
 auctionSchema.index({ product: 1 }, { unique: true })
