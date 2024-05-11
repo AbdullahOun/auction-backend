@@ -44,11 +44,15 @@ const chatRoomSchema = new mongoose.Schema(
             },
         },
     },
-    { timestamps: true }
+    {
+        /**
+         * Adds createdAt and updatedAt fields to the schema.
+         */
+        timestamps: true,
+    }
 )
 
 // Ensure that a combination of user1 and user2 is unique
 chatRoomSchema.index({ user1: 1, user2: 1 }, { unique: true })
 chatRoomSchema.index({ user2: 1, user1: 1 }, { unique: true })
-
 module.exports = mongoose.model('ChatRoom', chatRoomSchema)
