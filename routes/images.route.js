@@ -1,8 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const verifyToken = require('../middlewares/verifyToken')
-const { upload } = require('../middlewares/uplaod')
-const imagesController = require('../controllers/images.controller')
+const upload = require('../middlewares/uplaod')
+const { Create, Delete } = require('../controllers/images.controller')
 
 router
     .route('/upload')
@@ -10,7 +10,7 @@ router
      * POST request to upload an image.
      * Requires authentication.
      */
-    .post(verifyToken, upload.single('image'), imagesController.uploadImage)
+    .post(verifyToken, upload.single('image'), Create.upload)
 
 router
     .route('/remove/:imagePath')
@@ -18,6 +18,6 @@ router
      * DLETE request to upload an image.
      * Requires authentication.
      */
-    .delete(verifyToken, imagesController.removeImage)
+    .delete(verifyToken, Delete.remove)
 
 module.exports = router

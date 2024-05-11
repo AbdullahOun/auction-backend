@@ -1,5 +1,5 @@
 const express = require('express')
-const chatRoomController = require('../controllers/chatRooms.controller')
+const { Get, Create, Delete } = require('../controllers/chatRooms.controller')
 const router = express.Router()
 const verifyToken = require('../middlewares/verifyToken')
 
@@ -12,12 +12,12 @@ router
      * GET request to fetch all chat rooms.
      * Requires authentication.
      */
-    .get(verifyToken, chatRoomController.getAllChatRooms)
+    .get(verifyToken, Get.all)
     /**
      * POST request to create a new chat room.
      * Requires authentication.
      */
-    .post(verifyToken, chatRoomController.createChatRoom)
+    .post(verifyToken, Create.create)
 
 /**
  * Routes for managing a specific chat room.
@@ -28,11 +28,11 @@ router
      * GET request to fetch a specific chat room.
      * Requires authentication.
      */
-    .get(verifyToken, chatRoomController.getChatRoom)
+    .get(verifyToken, Get.one)
     /**
      * DELETE request to delete a specific chat room.
      * Requires authentication.
      */
-    .delete(verifyToken, chatRoomController.deleteChatRoom)
+    .delete(verifyToken, Delete.delete)
 
 module.exports = router

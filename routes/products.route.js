@@ -1,5 +1,5 @@
 const express = require('express')
-const productController = require('../controllers/products.controller')
+const { Get, Update } = require('../controllers/products.controller')
 const router = express.Router()
 const verifyToken = require('../middlewares/verifyToken')
 
@@ -12,11 +12,22 @@ router
      * GET request to retrieve a specific product.
      * Requires authentication.
      */
-    .get(verifyToken, productController.getProduct)
+    .get(
+        verifyToken,
+        Get.One.isAuctionExists,
+        Get.One.isUserAuthorized,
+        Get.One.one
+    )
     /**
      * PATCH request to update a specific product.
      * Requires authentication.
      */
-    .patch(verifyToken, productController.updateProduct)
+    .patch(
+        verifyToken,
+        Update.isValid,
+        Update.isAuctionExists,
+        Update.isUserAuthorized,
+        Update.update
+    )
 
 module.exports = router
