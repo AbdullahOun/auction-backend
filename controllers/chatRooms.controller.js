@@ -34,11 +34,12 @@ class Get {
             })
             .limit(limit)
             .skip(skip)
+            .lean()
 
         await Promise.all(
             chatRooms.map(async (chatRoom) => {
                 const unseenCount = await Message.countDocuments({
-                    chatRoomId: chatRoom._id,
+                    chatRoom: chatRoom._id,
                     seen: false,
                     sender: { $ne: decodedId },
                 })
@@ -68,6 +69,7 @@ class Get {
                 path: 'user2',
                 select: '-password',
             })
+            .lean()
 
         if (!chatRoom) {
             return next(
@@ -93,7 +95,7 @@ class Get {
         }
 
         const unseenCount = await Message.countDocuments({
-            chatRoomId: chatRoom._id,
+            chatRoom: chatRoom._id,
             seen: false,
             sender: { $ne: decodedId },
         })
