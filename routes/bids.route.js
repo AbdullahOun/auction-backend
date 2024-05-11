@@ -1,18 +1,18 @@
 const express = require('express')
-const bidController = require('../controllers/bids.controller')
+const { Get, Delete } = require('../controllers/bids.controller')
 const verifyToken = require('../middlewares/verifyToken')
 const router = express.Router()
 
 /**
- * Route for creating a new bid.
+ * Route for getting top bidder.
  */
 router
-    .route('/')
+    .route('/auctions/:auctionId/top')
     /**
-     * POST request to create a new bid.
+     * GET request to get top bidder.
      * Requires authentication.
      */
-    .post(verifyToken, bidController.createBid)
+    .get(verifyToken, Get.top)
 
 /**
  * Route for getting all bids for a specific auction.
@@ -23,7 +23,7 @@ router
      * GET request to fetch all bids for a specific auction.
      * Requires no authentication.
      */
-    .get(bidController.getAllBids)
+    .get(Get.all)
 
 /**
  * Route for getting, updating, or deleting a specific bid.
@@ -34,11 +34,11 @@ router
      * GET request to fetch a specific bid.
      * Requires no authentication.
      */
-    .get(bidController.getBid)
+    .get(Get.one)
     /**
      * DELETE request to delete a specific bid.
      * Requires authentication.
      */
-    .delete(verifyToken, bidController.deleteBid)
+    .delete(verifyToken, Delete.delete)
 
 module.exports = router

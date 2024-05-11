@@ -3,7 +3,7 @@ const AppError = require('../utils/appError')
 const { HTTP_STATUS_CODES, MODEL_MESSAGES } = require('../utils/constants')
 
 /**
- * Middleware to verify JWT token from request headers.
+ * @description Middleware to verify JWT token from request headers.
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  * @param {Function} next - The next middleware function.

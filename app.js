@@ -57,13 +57,7 @@ app.all('*', (req, res, next) => {
 app.use((error, req, res, next) => {
     res.status(
         error.statusCode || HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-    ).json(
-        error ??
-            new AppError(
-                'Unknown Error',
-                HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-            )
-    )
+    ).json(error || new AppError())
 })
 
 // Connect to MongoDB and start the server

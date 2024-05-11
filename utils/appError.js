@@ -5,14 +5,14 @@ class AppError {
     /**
      * Create an instance of AppError.
      * @param {string} error - The error message.
-     * @param {number} [statusCode=400] - The status code of the error.
+     * @param {number} [statusCode=500] - The status code of the error.
      */
     constructor(error, statusCode = 500) {
         /**
          * The error message.
          * @type {string}
          */
-        this.error = error
+        this.error = error ?? 'Unkown error'
 
         /**
          * The status code of the error.

@@ -54,8 +54,18 @@ const messageSchema = new mongoose.Schema(
                 message: 'Sender does not exist',
             },
         },
+        seen: {
+            type: Boolean,
+            default: false,
+            required: true,
+        },
     },
-    { timestamps: true }
+    {
+        /**
+         * Adds createdAt and updatedAt fields to the schema.
+         */
+        timestamps: true,
+    }
 )
 
 module.exports = mongoose.model('Message', messageSchema)
