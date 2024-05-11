@@ -54,7 +54,7 @@ router
      * GET request to fetch a specific auction.
      * Requires authentication.
      */
-    .get(verifyToken, Get.one)
+    .get(Get.one)
     /**
      * PATCH request to update a specific auction.
      * Requires authentication.
