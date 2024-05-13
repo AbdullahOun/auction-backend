@@ -9,6 +9,19 @@ const registerSchema = require('../utils/validation/registerSchema')
 const loginSchema = require('../utils/validation/loginSchema')
 const userSchema = require('../utils/validation/userSchema')
 
+class Get {
+    /**
+     * @description Get the user data.
+     * @param {Object} req - The request object.
+     * @param {Object} res - The response object.
+     * @param {Function} next - The next middleware function.
+     */
+    static one = asyncWrapper(async (req, res, next) => {
+        const decodedId = req.decodedToken.id
+        const user = await User.findById(decodedId)
+        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ user }))
+    })
+}
 class Register {
     /**
      * @description Validate register request body.
@@ -252,4 +265,5 @@ module.exports = {
     Register,
     Login,
     Update,
+    Get,
 }

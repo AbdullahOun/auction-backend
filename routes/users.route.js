@@ -1,6 +1,11 @@
 const express = require('express')
 const router = express.Router()
-const { Register, Login, Update } = require('../controllers/users.controller')
+const {
+    Register,
+    Login,
+    Update,
+    Get,
+} = require('../controllers/users.controller')
 const verifyToken = require('../middlewares/verifyToken')
 
 /**
@@ -14,6 +19,11 @@ router
      * Requires authentication.
      */
     .patch(verifyToken, Update.isValid, Update.isUserExists, Update.update)
+    /**
+     * GET request to get user data.
+     * Requires authentication.
+     */
+    .get(verifyToken, Get.one)
 
 router
     .route('/register')
