@@ -93,7 +93,7 @@ const userSchema = mongoose.Schema({
         validate: {
             validator: function (value) {
                 // Check if the email format is valid
-                const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/
+                const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/
                 return emailRegex.test(value)
             },
             message: 'Invalid email format',

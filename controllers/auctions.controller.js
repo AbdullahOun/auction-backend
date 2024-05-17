@@ -6,9 +6,10 @@ const AppResponse = require('../utils/appResponse')
 const paginate = require('../utils/paginate')
 const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
 const mongoose = require('mongoose')
-const deleteImages = require('../utils/deleteImages')
 const productSchema = require('../utils/validation/productSchema')
 const auctionSchema = require('../utils/validation/auctionSchema')
+const uploadToS3 = require('../utils/storage/uploadToS3')
+const deleteFromS3 = require('../utils/storage/deleteFromS3')
 
 class Get {
     /**
@@ -16,7 +17,7 @@ class Get {
      * @param {Object} req - The request object.
      * @param {Object} res - The response object.
      */
-    static all = asyncWrapper(async (req, res) => {
+    static all = asyncWrapper(async (req, res, next) => {
         const { limit, skip } = paginate(req)
 
         const auctions = await Auction.find({})
@@ -37,7 +38,7 @@ class Get {
      * @param {Object} req - The request object.
      * @param {Object} res - The response object.
      */
-    static allByUserId = asyncWrapper(async (req, res) => {
+    static allByUserId = asyncWrapper(async (req, res, next) => {
         const { limit, skip } = paginate(req)
         const decodedId = req.decodedToken.id
 
@@ -103,15 +104,18 @@ class Create {
                 description: req.body.description,
             }
 
-            const images = req.files.map((file) => file.filename)
-            product.images = images
+            const uploadPromises = req.files.map(async (file) => {
+                return uploadToS3(file)
+            })
 
+            const images = await Promise.all(uploadPromises)
+            product.images = images
             req.product = product
             req.images = images
             next()
         } catch (err) {
             if (req.images && req.images.length > 0) {
-                await deleteImages(req.images)
+                await deleteFromS3(req.images)
             }
             next(err)
         }
@@ -130,7 +134,7 @@ class Create {
             next()
         } catch (err) {
             if (req.images && req.images.length > 0) {
-                await deleteImages(req.images)
+                await deleteFromS3(req.images)
             }
             next(
                 new AppError(
@@ -161,7 +165,7 @@ class Create {
             await session.abortTransaction()
             session.endSession()
             if (req.images && req.images.length > 0) {
-                await deleteImages(req.images)
+                await deleteFromS3(req.images)
             }
             next(
                 new AppError(
@@ -193,7 +197,7 @@ class Create {
             next()
         } catch (err) {
             if (req.images && req.images.length > 0) {
-                await deleteImages(req.images)
+                await deleteFromS3(req.images)
             }
             next(err)
         }
@@ -212,7 +216,7 @@ class Create {
             next()
         } catch (err) {
             if (req.images && req.images.length > 0) {
-                await deleteImages(req.images)
+                await deleteFromS3(req.images)
             }
             next(
                 new AppError(
@@ -245,7 +249,7 @@ class Create {
             await req.session.abortTransaction()
             req.session.endSession()
             if (req.images && req.images.length > 0) {
-                await deleteImages(req.images)
+                await deleteFromS3(req.images)
             }
             next(
                 new AppError(
@@ -360,10 +364,9 @@ class Delete {
      * @order 1
      */
     static isUserAuthorized = asyncWrapper(async (req, res, next) => {
+        const session = await mongoose.startSession()
         try {
-            const session = await mongoose.startSession()
             session.startTransaction()
-
             const auctionId = req.params.auctionId
             const decodedId = req.decodedToken.id
 
@@ -420,8 +423,8 @@ class Delete {
             req.images = product.images
             next()
         } catch (err) {
-            await session.abortTransaction()
-            session.endSession()
+            await req.session.abortTransaction()
+            req.session.endSession()
             next(
                 new AppError(
                     err.message,
@@ -446,8 +449,8 @@ class Delete {
             )
             next()
         } catch (err) {
-            await session.abortTransaction()
-            session.endSession()
+            await req.session.abortTransaction()
+            req.session.endSession()
             next(
                 new AppError(
                     err.message,
@@ -472,8 +475,8 @@ class Delete {
             )
             next()
         } catch (err) {
-            await session.abortTransaction()
-            session.endSession()
+            await req.session.abortTransaction()
+            req.session.endSession()
             next(
                 new AppError(
                     err.message,
@@ -493,13 +496,13 @@ class Delete {
      */
     static deleteProductImages = asyncWrapper(async (req, res, next) => {
         try {
-            await deleteImages(req.images)
+            await deleteFromS3(req.images)
             await req.session.commitTransaction()
             req.session.endSession()
             res.status(HTTP_STATUS_CODES.OK).json(new AppResponse(null))
         } catch (err) {
-            await session.abortTransaction()
-            session.endSession()
+            await req.session.abortTransaction()
+            req.session.endSession()
             next(
                 new AppError(
                     err.message,
