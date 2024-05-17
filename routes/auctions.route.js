@@ -25,7 +25,7 @@ router
      */
     .post(
         verifyToken,
-        upload.array('images', 3),
+        upload.array('images'),
         Create.readProductBody,
         Create.isValidProduct,
         Create.createProduct,

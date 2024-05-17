@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken')
 const AppError = require('../utils/appError')
 const { HTTP_STATUS_CODES, MODEL_MESSAGES } = require('../utils/constants')
+const process = require('process')
+require('dotenv').config()
 
 /**
  * @description Middleware to verify JWT token from request headers.

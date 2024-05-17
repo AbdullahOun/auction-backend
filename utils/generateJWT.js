@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken')
+const process = require('process')
+require('dotenv').config()
 
 /**
  * Generates a JWT token with the provided payload.

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken')
+const process = require('process')
 
 const verifySocketToken = (socket, next) => {
     const token = socket.handshake.query.token
