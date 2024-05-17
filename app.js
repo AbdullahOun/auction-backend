@@ -1,10 +1,13 @@
 const express = require('express')
 const cors = require('cors')
 const mongoose = require('mongoose')
-const path = require('path')
 const { Server } = require('socket.io')
-require('dotenv').config()
-
+const expressWinston = require('express-winston')
+const AppError = require('./utils/appError')
+const { HTTP_STATUS_CODES } = require('./utils/constants')
+const http = require('http')
+const { expressWinstonConfig, logger } = require('./utils/logging/logger')
+const process = require('process')
 // Import routers
 const productsRouter = require('./routes/products.route')
 const usersRouter = require('./routes/users.route')
@@ -14,24 +17,20 @@ const chatRoomsRouter = require('./routes/chatRooms.route')
 const bidsRouter = require('./routes/bids.route')
 const imagesRouter = require('./routes/images.route')
 const Chat = require('./socket-handlers/chat')
+const Auction = require('./socket-handlers/auction')
+require('dotenv').config()
 
-const http = require('http')
 const app = express()
 const port = process.env.PORT || 4000
 const url = process.env.MONGO_URL
 const httpServer = http.createServer(app) // Create HTTP server
 const io = new Server(httpServer) // Create Socket.IO server
 
-// Serve static files from the 'uploads' directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
-
 app.use(cors())
 app.use(express.json())
 
-// Import custom utilities and constants
-const AppError = require('./utils/appError')
-const { HTTP_STATUS_CODES } = require('./utils/constants')
-const Auction = require('./socket-handlers/auction')
+// Setup loggers
+app.use(expressWinston.logger(expressWinstonConfig))
 
 // Route definitions
 app.use('/api/users', usersRouter)
@@ -65,6 +64,16 @@ app.use((error, req, res, next) => {
     res.status(
         error.statusCode || HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
     ).json(error || new AppError())
+})
+
+app.use(expressWinston.errorLogger(expressWinstonConfig))
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection at:', promise, 'reason:', reason)
+})
+
+process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception thrown:', error)
 })
 
 // Connect to MongoDB and start the server
