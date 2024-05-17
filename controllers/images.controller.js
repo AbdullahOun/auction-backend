@@ -2,7 +2,8 @@ const asyncWrapper = require('../middlewares/asyncWrapper')
 const AppError = require('../utils/appError')
 const AppResponse = require('../utils/appResponse')
 const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
-const deleteImage = require('../utils/deleteImages')
+const deleteFromS3 = require('../utils/storage/deleteFromS3')
+const uploadToS3 = require('../utils/storage/uploadToS3')
 
 class Create {
     /**
@@ -12,20 +13,15 @@ class Create {
      * @param {Function} next - The next middleware function.
      */
     static upload = asyncWrapper(async (req, res, next) => {
-        // Check if a file was uploaded
         if (!req.file) {
-            // If no file was uploaded, return an error response
-            next(
-                new AppError(
-                    MODEL_MESSAGES.file.missing,
-                    HTTP_STATUS_CODES.BAD_REQUEST
-                )
+            throw new AppError(
+                MODEL_MESSAGES.file.missing,
+                HTTP_STATUS_CODES.BAD_REQUEST
             )
-            return
         }
-        // If a file was uploaded successfully, return the image URL in the response
+        const response = await uploadToS3(req.file)
         res.status(HTTP_STATUS_CODES.CREATED).json(
-            new AppResponse({ imageUrl: req.file.filename })
+            new AppResponse({ imageUrl: response.Location })
         )
     })
 }
@@ -39,7 +35,7 @@ class Delete {
      */
     static remove = asyncWrapper(async (req, res, next) => {
         const imagePath = req.params.imagePath
-        await deleteImage([imagePath])
+        await deleteFromS3([imagePath])
         res.status(HTTP_STATUS_CODES.CREATED).json(new AppResponse(null))
     })
 }
