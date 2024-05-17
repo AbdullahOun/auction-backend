@@ -1,5 +1,6 @@
 const crypto = require('node:crypto')
-
+const process = require('process')
+require('dotenv').config()
 /**
  * The length of the key used for hashing passwords.
  * @type {number}
@@ -30,8 +31,8 @@ function hashPassword(password) {
 function verifyPassword(password, userPassword) {
     const hashedPassword = hashPassword(password)
     return crypto.timingSafeEqual(
-        Buffer.from(hashedPassword),
-        Buffer.from(userPassword)
+        new ArrayBuffer(hashedPassword),
+        new ArrayBuffer(userPassword)
     )
 }
 
