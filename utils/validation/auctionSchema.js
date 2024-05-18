@@ -1,10 +1,11 @@
 const Joi = require('joi')
 
+// .min('now')    'date.min': 'Start date must be in the future',
+
 module.exports = Joi.object({
-    startDate: Joi.date().required().min('now').messages({
+    startDate: Joi.date().required().messages({
         'date.base': 'Start date must be a valid date',
         'any.required': 'Start date is required',
-        'date.min': 'Start date must be in the future',
     }),
     endDate: Joi.date().required().min(Joi.ref('startDate')).messages({
         'date.base': 'End date must be a valid date',

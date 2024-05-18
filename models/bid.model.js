@@ -70,4 +70,15 @@ const bidSchema = new mongoose.Schema(
     }
 )
 
+bidSchema.post('save', async function (doc, next) {
+    await doc
+        .populate('auction')
+        .populate({
+            path: 'buyer',
+            select: '-password',
+        })
+        .execPopulate()
+    next()
+})
+
 module.exports = mongoose.model('Bid', bidSchema)
