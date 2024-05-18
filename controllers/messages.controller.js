@@ -44,7 +44,7 @@ class Get {
 
         const messages = await Message.find({ chatRoom: chatRoomId })
             .select('-__v')
-            .sort({ createdAt: -1 })
+            .sort({ createdAt: 1 })
             .limit(limit)
             .skip(skip)
             .populate('chatRoom')
