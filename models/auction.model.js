@@ -14,12 +14,12 @@ const auctionSchema = new mongoose.Schema(
         startDate: {
             type: Date,
             required: true,
-            validate: {
-                validator: function (value) {
-                    return value >= new Date()
-                },
-                message: 'Start date must be in the future',
-            },
+            //validate: {
+            //    validator: function (value) {
+            //        return value >= new Date()
+            //    },
+            //    message: 'Start date must be in the future',
+            //},
         },
         /**
          * End date of the auction.
