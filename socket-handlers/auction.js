@@ -1,6 +1,8 @@
 const verifySocketToken = require('./middlewares/verifySocketToken')
 const AuctionModel = require('../models/auction.model')
 const BidModel = require('../models/bid.model')
+const logger = require('../utils/logging/logger')
+
 class Auction {
     constructor(io) {
         this.auction = io.of('/auction')
@@ -20,21 +22,31 @@ class Auction {
             socket.on('disconnect', () => {
                 socket.leave(auctionId)
             })
-        } catch (err) {
-            console.log(err)
+        } catch (error) {
+            logger.error(error.message)
             socket.disconnect()
         }
     }
 
     handleBid = async (data) => {
-        const auctionId = data.auctionId
-        const bid = new BidModel({
-            auction: auctionId,
-            buyer: data.buyerId,
-            price: data.price,
-        })
-        await bid.save()
-        this.auction.to(auctionId).emit('bid', bid)
+        try {
+            const auctionId = data.auctionId
+            const bid = new BidModel({
+                auction: auctionId,
+                buyer: data.buyerId,
+                price: data.price,
+            })
+            await bid.save()
+            const newBid = await Auction.findById(bid._id)
+                .populate('auction')
+                .populate({
+                    path: 'buyer',
+                    select: '-password',
+                })
+            this.auction.to(auctionId).emit('bid', newBid)
+        } catch (error) {
+            logger.error(error.message)
+        }
     }
 }
 module.exports = Auction

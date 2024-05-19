@@ -68,15 +68,4 @@ const messageSchema = new mongoose.Schema(
     }
 )
 
-messageSchema.post('save', async function (doc, next) {
-    await doc
-        .populate('chatRoom')
-        .populate({
-            path: 'sender',
-            select: '-password',
-        })
-        .execPopulate()
-    next()
-})
-
 module.exports = mongoose.model('Message', messageSchema)

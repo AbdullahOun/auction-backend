@@ -1,6 +1,7 @@
 const verifySocketToken = require('./middlewares/verifySocketToken')
 const ChatRoom = require('../models/chatRoom.model')
 const Message = require('../models/message.model')
+const logger = require('../utils/logging/logger')
 class Chat {
     constructor(io) {
         this.chat = io.of('/chat')
@@ -17,7 +18,7 @@ class Chat {
             if (!chatRoom) {
                 throw new Error('Chat room not found')
             }
-            if (!(chatRoom.user1 == decodedId || chatRoom.user2 == decodedId)) {
+            if (!chatRoom.user1 == decodedId && chatRoom.user2 == decodedId) {
                 throw new Error('User not authorized')
             }
             socket.join(chatRoomId)
@@ -25,28 +26,38 @@ class Chat {
             socket.on('disconnect', () => {
                 socket.leave(chatRoomId)
             })
-        } catch (err) {
-            console.log(err)
+        } catch (error) {
+            logger.log(error.message)
             socket.disconnect()
         }
     }
 
     handleMessage = async (data) => {
-        const chatRoomId = data.chatRoomId
-        let seen = false
-        if (this.rooms.get(chatRoomId).size == 2) {
-            seen = true
-        } else {
-            seen = false
+        try {
+            const chatRoomId = data.chatRoomId
+            let seen = false
+            if (this.rooms.get(chatRoomId).size == 2) {
+                seen = true
+            } else {
+                seen = false
+            }
+            let message = new Message({
+                chatRoom: chatRoomId,
+                content: data.content,
+                sender: data.sender,
+                seen: seen,
+            })
+            await message.save()
+            let FinalMessage = await Message.findById(message._id)
+                .populate('chatRoom')
+                .populate({
+                    path: 'sender',
+                    select: '-password',
+                })
+            this.chat.to(chatRoomId).emit('message', FinalMessage)
+        } catch (error) {
+            logger.error(error.message)
         }
-        const message = new Message({
-            chatRoom: chatRoomId,
-            content: data.content,
-            sender: data.sender,
-            seen: seen,
-        })
-        await message.save()
-        this.chat.to(chatRoomId).emit('message', message)
     }
 }
 module.exports = Chat
