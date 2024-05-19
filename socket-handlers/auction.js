@@ -37,7 +37,7 @@ class Auction {
                 price: data.price,
             })
             await bid.save()
-            const newBid = await Auction.findById(bid._id)
+            const newBid = await BidModel.findById(bid._id)
                 .populate('auction')
                 .populate({
                     path: 'buyer',
