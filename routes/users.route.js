@@ -1,47 +1,15 @@
 const express = require('express')
 const router = express.Router()
-const {
-    Register,
-    Login,
-    Update,
-    Get,
-} = require('../controllers/users.controller')
 const verifyToken = require('../middlewares/verifyToken')
+const UsersRepo = require('../repos/users.repo')
+const UsersController = require('../controllers/users.controller')
 
-/**
- * Routes for user authentication and management.
- */
+const usersRepo = new UsersRepo()
+const userController = new UsersController(usersRepo)
 
-router
-    .route('/')
-    /**
-     * PATCH request to update user information.
-     * Requires authentication.
-     */
-    .patch(verifyToken, Update.isValid, Update.isUserExists, Update.update)
-    /**
-     * GET request to get user data.
-     * Requires authentication.
-     */
-    .get(verifyToken, Get.one)
-
-router
-    .route('/register')
-    /**
-     * POST request to register a new user.
-     */
-    .post(Register.isValid, Register.isDuplicate, Register.register)
-
-router
-    .route('/login')
-    /**
-     * POST request to authenticate and log in a user.
-     */
-    .post(
-        Login.isValid,
-        Login.isUserExists,
-        Login.isPasswordCorrect,
-        Login.login
-    )
+router.route('/').patch(verifyToken, userController.update).get(verifyToken, userController.getByToken)
+router.route('/register').post(userController.register)
+router.route('/login').post(userController.login)
+router.route('/:userId').get(userController.getById)
 
 module.exports = router
