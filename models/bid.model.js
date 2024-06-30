@@ -1,22 +1,25 @@
 const mongoose = require('mongoose')
 
 /**
- * Schema for the Bid model.
+ * Mongoose schema definition for a Bid.
+ * @typedef {import('mongoose').Schema<Document<any, any, any>, import('mongoose').Model<Document<any, any, any>>, undefined, any>} MongooseSchema
+ */
+
+/**
+ * @type {MongooseSchema}
  */
 const bidSchema = new mongoose.Schema(
     {
-        /**
-         * The buyer of the bid.
-         * @type {mongoose.Schema.Types.ObjectId}
-         * @required
-         * @ref User
-         * @validate Custom validator to check if the buyer ID exists in the User collection
-         */
         buyer: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: 'User',
             validate: {
+                /**
+                 * Asynchronous validator function to check if the buyer exists.
+                 * @param {mongoose.Schema.Types.ObjectId} value - The buyer's ObjectId.
+                 * @returns {Promise<boolean>} Whether the buyer exists.
+                 */
                 validator: async function (value) {
                     const user = await mongoose.model('User').findById(value)
                     return user !== null
@@ -24,37 +27,32 @@ const bidSchema = new mongoose.Schema(
                 message: 'Buyer does not exist',
             },
         },
-        /**
-         * The auction associated with the bid.
-         * @type {mongoose.Schema.Types.ObjectId}
-         * @required
-         * @ref Auction
-         * @validate Custom validator to check if the auction ID exists in the Auction collection
-         */
         auction: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: 'Auction',
             validate: {
+                /**
+                 * Asynchronous validator function to check if the auction exists.
+                 * @param {mongoose.Schema.Types.ObjectId} value - The auction's ObjectId.
+                 * @returns {Promise<boolean>} Whether the auction exists.
+                 */
                 validator: async function (value) {
-                    const auction = await mongoose
-                        .model('Auction')
-                        .findById(value)
+                    const auction = await mongoose.model('Auction').findById(value)
                     return auction !== null
                 },
                 message: 'Auction does not exist',
             },
         },
-        /**
-         * The price of the bid.
-         * @type {Number}
-         * @required
-         * @validate Custom validator to check if the price is valid (greater than 0)
-         */
         price: {
             type: Number,
             required: true,
             validate: {
+                /**
+                 * Validator function to check if the price is greater than 1.
+                 * @param {number} value - The price value.
+                 * @returns {boolean} Whether the price is valid.
+                 */
                 validator: function (value) {
                     return value > 1
                 },
@@ -63,9 +61,6 @@ const bidSchema = new mongoose.Schema(
         },
     },
     {
-        /**
-         * Adds createdAt and updatedAt fields to the schema.
-         */
         timestamps: true,
     }
 )
