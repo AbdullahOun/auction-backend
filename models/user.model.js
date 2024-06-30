@@ -103,7 +103,4 @@ const userSchema = mongoose.Schema({
 userSchema.index({ email: 1 }, { unique: true })
 userSchema.index({ phone: 1 }, { unique: true })
 
-module.exports = {
-    User: mongoose.model('User', userSchema),
-    AddressSchema: addressSchema,
-}
+module.exports = mongoose.model('User', userSchema)
