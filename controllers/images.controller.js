@@ -1,46 +1,59 @@
-const asyncWrapper = require('../middlewares/asyncWrapper')
 const AppError = require('../utils/appError')
 const AppResponse = require('../utils/appResponse')
-const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
-const deleteFromS3 = require('../utils/storage/deleteFromS3')
-const uploadToS3 = require('../utils/storage/uploadToS3')
+const { HTTP_STATUS_CODES } = require('../utils/constants')
+const { logger } = require('../utils/logging/logger')
 
-class Create {
+/**
+ * Controller class for handling image upload and deletion operations.
+ */
+class ImagesController {
     /**
-     * Handle single image upload
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Initializes the ImagesController with S3 utility for image operations.
+     * @param {object} s3Util - Utility object for S3 operations.
      */
-    static upload = asyncWrapper(async (req, res, next) => {
-        if (!req.file) {
-            throw new AppError(
-                MODEL_MESSAGES.file.missing,
-                HTTP_STATUS_CODES.BAD_REQUEST
-            )
+    constructor(s3Util) {
+        this.s3Util = s3Util
+    }
+
+    /**
+     * Uploads an image to S3 storage.
+     * @param {object} req - Express request object containing the file to upload.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the uploaded image URL.
+     * @throws {AppError} Throws an error if file is missing or upload fails.
+     */
+    upload = async (req, res, next) => {
+        try {
+            if (!req.file) {
+                return next(AppError('File is missing', HTTP_STATUS_CODES.BAD_REQUEST))
+            }
+            const response = await this.s3Util.upload(req.file)
+            return res.status(HTTP_STATUS_CODES.CREATED).json(new AppResponse({ imageUrl: response.Location }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
         }
-        const response = await uploadToS3(req.file)
-        res.status(HTTP_STATUS_CODES.CREATED).json(
-            new AppResponse({ imageUrl: response.Location })
-        )
-    })
-}
+    }
 
-class Delete {
     /**
-     * Handle single image delete.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Deletes an image from S3 storage.
+     * @param {object} req - Express request object containing the image path to delete.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response indicating success.
+     * @throws {AppError} Throws an error if deletion fails.
      */
-    static remove = asyncWrapper(async (req, res, next) => {
-        const imagePath = req.params.imagePath
-        await deleteFromS3([imagePath])
-        res.status(HTTP_STATUS_CODES.CREATED).json(new AppResponse(null))
-    })
+    delete = async (req, res, next) => {
+        try {
+            const imagePath = req.params.imagePath
+            await this.s3Util.delete([imagePath])
+            return res.status(HTTP_STATUS_CODES.CREATED).json(new AppResponse(null))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
 }
 
-module.exports = {
-    Create,
-    Delete,
-}
+module.exports = ImagesController
