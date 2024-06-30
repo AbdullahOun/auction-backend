@@ -9,7 +9,6 @@ const http = require('http')
 const { expressWinstonConfig, logger } = require('./utils/logging/logger')
 const process = require('process')
 // Import routers
-const productsRouter = require('./routes/products.route')
 const usersRouter = require('./routes/users.route')
 const auctionsRouter = require('./routes/auctions.route')
 const messagesRouter = require('./routes/messages.route')
@@ -18,6 +17,7 @@ const bidsRouter = require('./routes/bids.route')
 const imagesRouter = require('./routes/images.route')
 const Chat = require('./socket-handlers/chat')
 const Auction = require('./socket-handlers/auction')
+const Search = require('./socket-handlers/search')
 require('dotenv').config()
 
 const app = express()
@@ -35,7 +35,6 @@ app.use(expressWinston.logger(expressWinstonConfig))
 // Route definitions
 app.use('/api/users', usersRouter)
 app.use('/api/auctions', auctionsRouter)
-app.use('/api/products', productsRouter)
 app.use('/api/messages', messagesRouter)
 app.use('/api/chat-rooms', chatRoomsRouter)
 app.use('/api/bids', bidsRouter)
@@ -48,9 +47,7 @@ app.use('/api/images', imagesRouter)
  * @param {function} next - The next middleware function.
  */
 app.all('*', (req, res, next) => {
-    res.status(HTTP_STATUS_CODES.NOT_FOUND).json(
-        new AppError('Resource not found', HTTP_STATUS_CODES.NOT_FOUND)
-    )
+    res.status(HTTP_STATUS_CODES.NOT_FOUND).json(new AppError('Resource not found', HTTP_STATUS_CODES.NOT_FOUND))
 })
 
 /**
@@ -61,9 +58,7 @@ app.all('*', (req, res, next) => {
  * @param {function} next - The next middleware function.
  */
 app.use((error, req, res, next) => {
-    res.status(
-        error.statusCode || HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-    ).json(error || new AppError())
+    res.status(error.statusCode).json(error)
 })
 
 app.use(expressWinston.errorLogger(expressWinstonConfig))
@@ -80,7 +75,7 @@ process.on('uncaughtException', (error) => {
 mongoose.connect(url).then(() => {
     console.log('MongoDB server started')
     httpServer.listen(port, () => console.log(`Server running at ${port}!`))
+    new Chat(io)
+    new Auction(io)
+    new Search(io)
 })
-
-new Chat(io)
-new Auction(io)

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken')
 const process = require('process')
+const { logger } = require('../../utils/logging/logger')
 
 const verifySocketToken = (socket, next) => {
     const token = socket.handshake.query.token
@@ -13,7 +14,7 @@ const verifySocketToken = (socket, next) => {
         socket.decodedToken = decodedToken
         return next()
     } catch (err) {
-        return socket.emit('error', { error: 'Token is corrupted' })
+        logger.info(err.message)
     }
 }
 

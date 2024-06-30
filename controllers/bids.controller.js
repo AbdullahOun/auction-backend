@@ -1,120 +1,113 @@
-const Bid = require('../models/bid.model')
-const asyncWrapper = require('../middlewares/asyncWrapper')
 const AppResponse = require('../utils/appResponse')
 const AppError = require('../utils/appError')
 const paginate = require('../utils/paginate')
-const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
+const { HTTP_STATUS_CODES } = require('../utils/constants')
+const { logger } = require('../utils/logging/logger')
 
-class Get {
+/**
+ * Controller class for handling bid operations.
+ */
+class BidsController {
     /**
-     * @description Get all bids for a specific auction with pagination.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Initializes the BidsController with a repository for bid operations.
+     * @param {object} bidsRepo - Repository handling bid data.
      */
-    static all = asyncWrapper(async (req, res, next) => {
-        const { limit, skip } = paginate(req)
-        const auctionId = req.params.auctionId
-
-        const bids = await Bid.find({ auction: auctionId })
-            .select('-__v')
-            .sort({ price: -1 })
-            .limit(limit)
-            .skip(skip)
-            .populate('auction')
-            .populate({
-                path: 'buyer',
-                select: '-password',
-            })
-
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bids }))
-    })
+    constructor(bidsRepo) {
+        this.bidsRepo = bidsRepo
+    }
 
     /**
-     * @description Get details of a specific bid.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Get all bids for a specific auction.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing bids.
+     * @throws {AppError} Throws an error if retrieval fails.
      */
-    static one = asyncWrapper(async (req, res, next) => {
-        const bidId = req.params.bidId
+    getAll = async (req, res, next) => {
+        try {
+            const { limit, skip } = paginate(req)
+            const auctionId = req.params.auctionId
 
-        const bid = await Bid.findById(bidId)
-            .select('-__v')
-            .populate('auction')
-            .populate({
-                path: 'buyer',
-                select: '-password',
-            })
+            const bids = await this.bidsRepo.getAll(auctionId, limit, skip)
 
-        if (!bid) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.bid.notFound,
-                    HTTP_STATUS_CODES.NOT_FOUND
-                )
-            )
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bids }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
         }
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bid }))
-    })
-    static top = asyncWrapper(async (req, res, next) => {
-        const auctionId = req.params.auctionId
-        const bid = await Bid.findOne({ auction: auctionId })
-            .sort({ price: -1 })
-            .select('-__v')
-            .populate('auction')
-            .populate({
-                path: 'buyer',
-                select: '-password',
-            })
+    }
 
-        if (!bid) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.bid.notFound,
-                    HTTP_STATUS_CODES.NOT_FOUND
-                )
-            )
-        }
-
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bid }))
-    })
-}
-
-class Delete {
     /**
-     * @description Delete a specific bid.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Get a bid by its ID.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the bid.
+     * @throws {AppError} Throws an error if bid is not found or retrieval fails.
      */
-    static delete = asyncWrapper(async (req, res, next) => {
-        const bidId = req.params.bidId
-        const bid = await Bid.findById(bidId).select(['_id', 'buyer'])
-        if (!bid) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.bid.notFound,
-                    HTTP_STATUS_CODES.NOT_FOUND
-                )
-            )
-        }
+    getById = async (req, res, next) => {
+        try {
+            const bidId = req.params.bidId
+            const bid = await this.bidsRepo.getById(bidId)
 
-        if (bid.buyer != req.decodedToken.id) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.user.unauthorized,
-                    HTTP_STATUS_CODES.UNAUTHORIZED
-                )
-            )
-        }
+            if (!bid) {
+                return next(new AppError('Bid not found', HTTP_STATUS_CODES.NOT_FOUND))
+            }
 
-        await Bid.deleteOne({ _id: bidId })
-        return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse(null))
-    })
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bid }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
+
+    /**
+     * Get the top bid for a specific auction.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the top bid.
+     * @throws {AppError} Throws an error if retrieval fails.
+     */
+    getTop = async (req, res, next) => {
+        try {
+            const auctionId = req.params.auctionId
+            const bid = await this.bidsRepo.getTop(auctionId)
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bid }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
+
+    /**
+     * Delete a bid by its ID, if the user has permission.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the deleted bid.
+     * @throws {AppError} Throws an error if deletion fails or user does not have permission.
+     */
+    delete = async (req, res, next) => {
+        try {
+            const bidId = req.params.bidId
+            const userId = req.decodedToken.id
+            const bid = await this.bidsRepo.delete(bidId, userId)
+            if (!bid) {
+                return next(
+                    new AppError(
+                        'Bid not found or user does not have permission to delete it',
+                        HTTP_STATUS_CODES.FORBIDDEN
+                    )
+                )
+            }
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ bid }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
 }
 
-module.exports = {
-    Get,
-    Delete,
-}
+module.exports = BidsController

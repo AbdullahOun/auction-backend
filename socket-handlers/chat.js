@@ -1,7 +1,11 @@
 const verifySocketToken = require('./middlewares/verifySocketToken')
-const ChatRoom = require('../models/chatRoom.model')
-const Message = require('../models/message.model')
-const logger = require('../utils/logging/logger')
+const { logger } = require('../utils/logging/logger')
+const ChatRoomsRepo = require('../repos/chatRooms.repo')
+const MessagesRepo = require('../repos/messages.repo')
+
+const chatRoomsRepo = new ChatRoomsRepo()
+const messagesRepo = new MessagesRepo()
+
 class Chat {
     constructor(io) {
         this.chat = io.of('/chat')
@@ -13,12 +17,12 @@ class Chat {
     handleConnection = async (socket) => {
         try {
             const chatRoomId = socket.handshake.query.chatRoomId
-            const decodedId = socket.decodedToken.id
-            const chatRoom = await ChatRoom.findById(chatRoomId)
+            const userId = socket.decodedToken.id
+            const chatRoom = await chatRoomsRepo.getById(chatRoomId)
             if (!chatRoom) {
                 throw new Error('Chat room not found')
             }
-            if (!chatRoom.user1 == decodedId && chatRoom.user2 == decodedId) {
+            if (!chatRoom.user1 == userId && chatRoom.user2 == userId) {
                 throw new Error('User not authorized')
             }
             socket.join(chatRoomId)
@@ -26,8 +30,8 @@ class Chat {
             socket.on('disconnect', () => {
                 socket.leave(chatRoomId)
             })
-        } catch (error) {
-            logger.log(error.message)
+        } catch (err) {
+            logger.error(err.message)
             socket.disconnect()
         }
     }
@@ -41,22 +45,10 @@ class Chat {
             } else {
                 seen = false
             }
-            let message = new Message({
-                chatRoom: chatRoomId,
-                content: data.content,
-                sender: data.sender,
-                seen: seen,
-            })
-            await message.save()
-            let FinalMessage = await Message.findById(message._id)
-                .populate('chatRoom')
-                .populate({
-                    path: 'sender',
-                    select: '-password',
-                })
-            this.chat.to(chatRoomId).emit('message', FinalMessage)
-        } catch (error) {
-            logger.error(error.message)
+            const message = await messagesRepo.createAndRetrieve(chatRoomId, data.content, data.sender, seen)
+            this.chat.to(chatRoomId).emit('message', message)
+        } catch (err) {
+            logger.error(err.message)
         }
     }
 }

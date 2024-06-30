@@ -1,212 +1,152 @@
-const ChatRoom = require('../models/chatRoom.model')
-const User = require('../models/user.model')
-const asyncWrapper = require('../middlewares/asyncWrapper')
 const AppResponse = require('../utils/appResponse')
 const AppError = require('../utils/appError')
 const paginate = require('../utils/paginate')
-const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
-const Message = require('../models/message.model')
+const { HTTP_STATUS_CODES } = require('../utils/constants')
 const mongoose = require('mongoose')
+const { logger } = require('../utils/logging/logger')
 
-class Get {
+/**
+ * Controller class for handling chat room operations.
+ */
+class ChatRoomsController {
     /**
-     * @description Get all chat rooms where the current user is involved.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Initializes the ChatRoomsController with repositories for chat rooms, messages, and users.
+     * @param {object} chatRoomsRepo - Repository handling chat room data.
+     * @param {object} messagesRepo - Repository handling message data.
+     * @param {object} usersRepo - Repository handling user data.
      */
-    static all = asyncWrapper(async (req, res, next) => {
-        const { limit, skip } = paginate(req)
-        const decodedId = req.decodedToken.id
+    constructor(chatRoomsRepo, messagesRepo, usersRepo) {
+        this.chatRoomsRepo = chatRoomsRepo
+        this.messagesRepo = messagesRepo
+        this.usersRepo = usersRepo
+    }
 
-        const chatRooms = await ChatRoom.find({
-            $or: [{ user1: decodedId }, { user2: decodedId }],
-        })
-            .select('-__v')
-            .sort({ createdAt: -1 })
-            .populate({
-                path: 'user1',
-                select: '-password',
-            })
-            .populate({
-                path: 'user2',
-                select: '-password',
-            })
-            .limit(limit)
-            .skip(skip)
-            .lean()
-
-        await Promise.all(
-            chatRooms.map(async (chatRoom) => {
-                const unseenCount = await Message.countDocuments({
-                    chatRoom: chatRoom._id,
-                    seen: false,
-                    sender: { $ne: decodedId },
+    /**
+     * Get all chat rooms for the authenticated user.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing chat rooms.
+     * @throws {AppError} Throws an error if retrieval fails.
+     */
+    getAll = async (req, res, next) => {
+        try {
+            const { limit, skip } = paginate(req)
+            const userId = req.decodedToken.id
+            const chatRooms = await this.chatRoomsRepo.getAll(userId, limit, skip)
+            await Promise.all(
+                chatRooms.map(async (chatRoom) => {
+                    chatRoom.unseenCount = await this.messagesRepo.getUnseenCount(chatRoom._id, userId)
                 })
-                chatRoom.unseenCount = unseenCount
-            })
-        )
+            )
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ chatRooms }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
 
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ chatRooms }))
-    })
     /**
-     * @description Get details of a specific chat room.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Get a chat room by its ID for the authenticated user.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the chat room.
+     * @throws {AppError} Throws an error if chat room is not found or user is unauthorized.
      */
-    static one = asyncWrapper(async (req, res, next) => {
-        const decodedId = req.decodedToken.id
-        const chatRoomId = req.params.chatRoomId
+    getById = async (req, res, next) => {
+        try {
+            const userId = req.decodedToken.id
+            const chatRoomId = req.params.chatRoomId
+            const chatRoom = await this.chatRoomsRepo.getById(chatRoomId)
 
-        const chatRoom = await ChatRoom.findById(chatRoomId)
-            .select('-__v')
-            .populate({
-                path: 'user1',
-                select: '-password',
-            })
-            .populate({
-                path: 'user2',
-                select: '-password',
-            })
-            .lean()
+            if (!chatRoom) {
+                return next(new AppError('Chat room not found', HTTP_STATUS_CODES.NOT_FOUND))
+            }
 
-        if (!chatRoom) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.chatRoom.notFound,
-                    HTTP_STATUS_CODES.NOT_FOUND
-                )
-            )
+            if (chatRoom.user1._id != userId && chatRoom.user2._id != userId) {
+                return next(new AppError('Unauthorized access to chat room', HTTP_STATUS_CODES.FORBIDDEN))
+            }
+
+            chatRoom.unseenCount = await this.messagesRepo.getUnseenCount(chatRoom._id, userId)
+
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ chatRoom }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
         }
+    }
 
-        if (
-            !(
-                chatRoom.user1._id == decodedId ||
-                chatRoom.user2._id == decodedId
-            )
-        ) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.user.unauthorized,
-                    HTTP_STATUS_CODES.FORBIDDEN
-                )
-            )
-        }
-
-        const unseenCount = await Message.countDocuments({
-            chatRoom: chatRoom._id,
-            seen: false,
-            sender: { $ne: decodedId },
-        })
-        chatRoom.unseenCount = unseenCount
-
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ chatRoom }))
-    })
-}
-
-class Create {
     /**
-     * @description Create a new chat room.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Create a new chat room between the authenticated user and another user.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the created chat room.
+     * @throws {AppError} Throws an error if user does not exist, chat room already exists, or creation fails.
      */
-    static create = asyncWrapper(async (req, res, next) => {
-        const user2Id = req.body.user2Id
-        const user1Id = req.decodedToken.id
 
-        const user2 = await User.findById(user2Id)
+    create = async (req, res, next) => {
+        try {
+            const user2Id = req.body.user2Id
+            const user1Id = req.decodedToken.id
 
-        if (!user2 || user2Id == user1Id) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.user.notFound,
-                    HTTP_STATUS_CODES.NOT_FOUND
-                )
-            )
+            const user2 = await this.usersRepo.getById(user2Id)
+
+            if (!user2 || user2Id == user1Id) {
+                return next(new AppError('User not found', HTTP_STATUS_CODES.NOT_FOUND))
+            }
+
+            if (await this.chatRoomsRepo.isExistsByUserRefs(user1Id, user2Id)) {
+                return next(new AppError('Chat room with same users already exists', HTTP_STATUS_CODES.CONFLICT))
+            }
+
+            const chatRoom = await this.chatRoomsRepo.create(user1Id, user2Id)
+
+            return res.status(HTTP_STATUS_CODES.CREATED).json(new AppResponse({ chatRoom }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
         }
+    }
 
-        const chatRoomExists = await ChatRoom.findOne({
-            $or: [
-                { user1: user1Id, user2: user2Id },
-                { user1: user2Id, user2: user1Id },
-            ],
-        })
-
-        if (chatRoomExists) {
-            return res
-                .status(HTTP_STATUS_CODES.NO_CONTENT)
-                .json(new AppResponse(null))
-        }
-
-        const newChatRoom = new ChatRoom({
-            user1: user1Id,
-            user2: user2Id,
-        })
-
-        await newChatRoom.save()
-
-        res.status(HTTP_STATUS_CODES.CREATED).json(
-            new AppResponse({ chatRoom: newChatRoom })
-        )
-    })
-}
-
-class Delete {
     /**
-     * @description Delete a specific chat room.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
+     * Delete a chat room by its ID for the authenticated user.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the deleted chat room.
+     * @throws {AppError} Throws an error if deletion fails or user is unauthorized.
      */
-    static delete = asyncWrapper(async (req, res, next) => {
+    delete = async (req, res, next) => {
         const session = await mongoose.startSession()
         session.startTransaction()
         try {
             const chatRoomId = req.params.chatRoomId
-            const decodedId = req.decodedToken.id
+            const userId = req.decodedToken.id
 
-            const chatRoom =
-                await ChatRoom.findById(chatRoomId).session(session)
+            const chatRoom = await this.chatRoomsRepo.getByIdTransaction(chatRoomId, session)
 
             if (!chatRoom) {
-                return next(
-                    new AppError(
-                        MODEL_MESSAGES.chatRoom.notFound,
-                        HTTP_STATUS_CODES.NOT_FOUND
-                    )
-                )
+                return next(new AppError('Chat room not found', HTTP_STATUS_CODES.NOT_FOUND))
             }
 
-            if (!(chatRoom.user1 == decodedId || chatRoom.user2 == decodedId)) {
-                return next(
-                    new AppError(
-                        MODEL_MESSAGES.user.unauthorized,
-                        HTTP_STATUS_CODES.FORBIDDEN
-                    )
-                )
+            if (chatRoom.user1 != userId && chatRoom.user2 != userId) {
+                return next(new AppError('Unauthorized access to chat room', HTTP_STATUS_CODES.FORBIDDEN))
             }
-            await Message.deleteMany({ chatRoom: chatRoomId }).session(session)
-            await ChatRoom.deleteOne({ _id: chatRoomId }).session(session)
+            await this.messagesRepo.deleteAllByRoomIdTransaction(chatRoomId, session)
+            const deletedRoom = await this.chatRoomsRepo.deleteTransaction(chatRoomId, session)
             await session.commitTransaction()
             session.endSession()
-            res.status(HTTP_STATUS_CODES.OK).json(new AppResponse(null))
-        } catch (error) {
+
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ chatRoom: deletedRoom }))
+        } catch (err) {
             await session.abortTransaction()
             session.endSession()
-            next(
-                new AppError(
-                    'Failed To Delete Chatroom',
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-                )
-            )
+            logger.error(err.message)
+            return next(new AppError('Failed To Delete Chatroom', HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
         }
-    })
+    }
 }
 
-module.exports = {
-    Get,
-    Create,
-    Delete,
-}
+module.exports = ChatRoomsController
