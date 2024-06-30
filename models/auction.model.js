@@ -1,32 +1,49 @@
 const mongoose = require('mongoose')
 
 /**
- * Schema for Auction model.
+ * Mongoose schema definition for an Auction.
+ * @typedef {import('mongoose').Schema<Document<any, any, any>, import('mongoose').Model<Document<any, any, any>>, undefined, any>} MongooseSchema
+ */
+
+/**
+ * @type {MongooseSchema}
  */
 const auctionSchema = new mongoose.Schema(
     {
-        /**
-         * Start date of the auction.
-         * @type {Date}
-         * @required
-         * @validate Custom validator to check if the start date is in the future
-         */
+        name: {
+            type: String,
+            required: true,
+        },
+        initialPrice: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+        maxPrice: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+        quantity: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+        description: {
+            type: String,
+            required: true,
+        },
+        tags: [{ type: String, required: false }],
+        images: [
+            {
+                type: String,
+                required: false,
+            },
+        ],
         startDate: {
             type: Date,
             required: true,
-            //validate: {
-            //    validator: function (value) {
-            //        return value >= new Date()
-            //    },
-            //    message: 'Start date must be in the future',
-            //},
         },
-        /**
-         * End date of the auction.
-         * @type {Date}
-         * @required
-         * @validate Custom validator to check if the end date is after the start date
-         */
         endDate: {
             type: Date,
             required: true,
@@ -37,24 +54,6 @@ const auctionSchema = new mongoose.Schema(
                 message: 'End date must be after the start date',
             },
         },
-        /**
-         * Product associated with the auction.
-         * @type {mongoose.Schema.Types.ObjectId}
-         * @required
-         * @ref Product
-         */
-        product: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: true,
-            ref: 'Product',
-        },
-        /**
-         * Seller of the auction.
-         * @type {mongoose.Schema.Types.ObjectId}
-         * @required
-         * @ref User
-         * @validate Custom validator to check if the seller ID exists in the User collection
-         */
         seller: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
@@ -69,14 +68,16 @@ const auctionSchema = new mongoose.Schema(
         },
     },
     {
-        /**
-         * Adds createdAt and updatedAt fields to the schema.
-         */
         timestamps: true,
         toJSON: { virtuals: true },
     }
 )
 
+/**
+ * Virtual property that calculates the status of the auction based on current date.
+ * @name auctionSchema#status
+ * @type {string}
+ */
 auctionSchema.virtual('status').get(function () {
     const now = new Date()
     const startDate = this.startDate
@@ -91,7 +92,18 @@ auctionSchema.virtual('status').get(function () {
     }
 })
 
-// Define a unique index for the product field
-auctionSchema.index({ product: 1 }, { unique: true })
+/**
+ * Index definition for text search on auction name.
+ * @name auctionSchema.indexes
+ * @type {Object}
+ */
+auctionSchema.index(
+    { name: 'text' },
+    {
+        default_language: 'english',
+        textIndexVersion: 3,
+        minLength: 1,
+    }
+)
 
 module.exports = mongoose.model('Auction', auctionSchema)
