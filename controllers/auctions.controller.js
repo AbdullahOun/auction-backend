@@ -1,521 +1,253 @@
-const Auction = require('../models/auction.model')
-const Product = require('../models/product.model')
-const asyncWrapper = require('../middlewares/asyncWrapper')
 const AppError = require('../utils/appError')
 const AppResponse = require('../utils/appResponse')
 const paginate = require('../utils/paginate')
-const { MODEL_MESSAGES, HTTP_STATUS_CODES } = require('../utils/constants')
-const mongoose = require('mongoose')
-const productSchema = require('../utils/validation/productSchema')
+const { HTTP_STATUS_CODES } = require('../utils/constants')
 const auctionSchema = require('../utils/validation/auctionSchema')
-const uploadToS3 = require('../utils/storage/uploadToS3')
-const deleteFromS3 = require('../utils/storage/deleteFromS3')
+const { logger } = require('../utils/logging/logger')
 
-class Get {
+/**
+ * Controller class for handling auction operations.
+ */
+class AuctionController {
     /**
-     * Get all auctions with pagination.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
+     * Initializes the AuctionController with repositories and utility services.
+     * @param {object} auctionRepo - Repository handling auction data.
+     * @param {object} s3Util - Utility for interacting with AWS S3.
      */
-    static all = asyncWrapper(async (req, res, next) => {
-        const { limit, skip } = paginate(req)
+    constructor(auctionRepo, s3Util) {
+        this.auctionRepo = auctionRepo
+        this.s3Util = s3Util
+    }
 
-        const auctions = await Auction.find({})
-            .select('-__v')
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .skip(skip)
-            .populate('product')
-            .populate({
-                path: 'seller',
-                select: '-password',
-            })
-
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auctions }))
-    })
     /**
-     * Get all auctions created by a specific user with pagination.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
+     * Get all auctions based on query parameters.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing auctions.
+     * @throws {AppError} Throws an error if retrieval fails.
      */
-    static allByUserId = asyncWrapper(async (req, res, next) => {
-        const { limit, skip } = paginate(req)
-        const decodedId = req.decodedToken.id
-
-        const auctions = await Auction.find({ seller: decodedId })
-            .select('-__v')
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .skip(skip)
-            .populate('product')
-            .populate({
-                path: 'seller',
-                select: '-password',
-            })
-
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auctions }))
-    })
-    /**
-     * @description Get details of a specific auction.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     */
-    static one = asyncWrapper(async (req, res, next) => {
-        const auctionId = req.params.auctionId
-
-        const auction = await Auction.findById(auctionId)
-            .select('-__v')
-            .populate('product')
-            .populate({
-                path: 'seller',
-                select: '-password',
-            })
-
-        if (!auction) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.auction.notFound,
-                    HTTP_STATUS_CODES.NOT_FOUND
-                )
-            )
-        }
-
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auction }))
-    })
-}
-
-class Create {
-    /**
-     * @description Read product's data from the request body.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course create auction
-     * @order 1
-     */
-    static readProductBody = asyncWrapper(async (req, res, next) => {
+    getAll = async (req, res, next) => {
         try {
-            const product = {
+            const { limit, skip } = paginate(req)
+            const minPrice = req.query.min_price ? parseFloat(req.query.min_price) : null
+            const maxPrice = req.query.max_price ? parseFloat(req.query.max_price) : null
+            const minStartDate = req.query.min_start_date ? new Date(req.query.min_start_date) : null
+            const maxStartDate = req.query.max_start_date ? new Date(req.query.max_start_date) : null
+            const tags = req.query.tags ? req.query.tags.split(',') : null
+
+            const auctions = await this.auctionRepo.getAll(
+                limit,
+                skip,
+                null,
+                minPrice,
+                maxPrice,
+                tags,
+                minStartDate,
+                maxStartDate
+            )
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auctions }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
+
+    /**
+     * Get all auctions by user ID based on query parameters.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing auctions.
+     * @throws {AppError} Throws an error if retrieval fails.
+     */
+    getAllByUserId = async (req, res, next) => {
+        try {
+            const { limit, skip } = paginate(req)
+            const minPrice = req.query.min_price ? parseFloat(req.query.min_price) : null
+            const maxPrice = req.query.max_price ? parseFloat(req.query.max_price) : null
+            const minStartDate = req.query.min_start_date ? new Date(req.query.min_start_date) : null
+            const maxStartDate = req.query.max_start_date ? new Date(req.query.max_start_date) : null
+            const tags = req.query.tags ? req.query.tags.split(',') : null
+
+            const userId = req.decodedToken.id
+
+            const auctions = await this.auctionRepo.getAll(
+                limit,
+                skip,
+                userId,
+                minPrice,
+                maxPrice,
+                tags,
+                minStartDate,
+                maxStartDate
+            )
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auctions }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
+
+    /**
+     * Get auction by ID.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the auction.
+     * @throws {AppError} Throws an error if auction is not found or retrieval fails.
+     */
+    getById = async (req, res, next) => {
+        try {
+            const auctionId = req.params.auctionId
+            const auction = await this.auctionRepo.getById(auctionId)
+            if (!auction) {
+                return next(new AppError('Auction not found', HTTP_STATUS_CODES.NOT_FOUND))
+            }
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auction }))
+        } catch (err) {
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        }
+    }
+
+    /**
+     * Create a new auction.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the created auction.
+     * @throws {AppError} Throws an error if creation fails or validation fails.
+     */
+    create = async (req, res, next) => {
+        let body = {}
+        try {
+            const userId = req.decodedToken.id
+            body = {
                 name: req.body.name,
                 initialPrice: req.body.initialPrice,
                 maxPrice: req.body.maxPrice,
                 quantity: req.body.quantity,
                 description: req.body.description,
+                tags: req.body.tags.split(','),
+                startDate: new Date(req.body.startDate),
+                endDate: new Date(req.body.endDate),
+                seller: userId,
             }
-
             const uploadPromises = req.files.map(async (file) => {
-                return uploadToS3(file)
+                return this.s3Util.upload(file)
             })
-
             const images = await Promise.all(uploadPromises)
-            product.images = images
-            req.product = product
-            req.images = images
-            next()
-        } catch (err) {
-            if (req.images && req.images.length > 0) {
-                await deleteFromS3(req.images)
+            body.images = images
+            let validatedBody
+            try {
+                validatedBody = await auctionSchema.validateAsync(body)
+            } catch (err) {
+                logger.error(err.message)
+                return next(new AppError(err.details[0].message, HTTP_STATUS_CODES.BAD_REQUEST))
             }
-            next(err)
-        }
-    })
-    /**
-     * @description Validate product body.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course create auction
-     * @order 2
-     */
-    static isValidProduct = asyncWrapper(async (req, res, next) => {
-        try {
-            req.product = await productSchema.validateAsync(req.product)
-            next()
-        } catch (err) {
-            if (req.images && req.images.length > 0) {
-                await deleteFromS3(req.images)
-            }
-            next(
-                new AppError(
-                    err.details[0].message,
-                    HTTP_STATUS_CODES.BAD_REQUEST
-                )
-            )
-        }
-    })
-    /**
-     * @description Create product document in database.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course create auction
-     * @order 3
-     */
-    static createProduct = asyncWrapper(async (req, res, next) => {
-        const session = await mongoose.startSession()
-        session.startTransaction()
 
-        try {
-            const newProducts = await Product.create([req.product], { session })
-            req.product = newProducts[0]
-            req.session = session
-            next()
+            let auction = await this.auctionRepo.create(validatedBody)
+            return res.status(HTTP_STATUS_CODES.CREATED).json(new AppResponse({ auction }))
         } catch (err) {
-            await session.abortTransaction()
-            session.endSession()
-            if (req.images && req.images.length > 0) {
-                await deleteFromS3(req.images)
+            if (body.images) {
+                await this.s3Util.delete(body.images)
             }
-            next(
-                new AppError(
-                    err.message,
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-                )
-            )
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
         }
-    })
+    }
+
     /**
-     * @description Read auction's data from the request body.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course create auction
-     * @order 4
+     * Update an existing auction.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the updated auction.
+     * @throws {AppError} Throws an error if update fails or validation fails.
      */
-    static readAuctionBody = asyncWrapper(async (req, res, next) => {
+    update = async (req, res, next) => {
+        let body = {}
         try {
-            const decodedId = req.decodedToken.id
-            const auction = {
+            const auctionId = req.params.auctionId
+            const userId = req.decodedToken.id
+            body = {
+                name: req.body.name,
+                initialPrice: req.body.initialPrice,
+                maxPrice: req.body.maxPrice,
+                quantity: req.body.quantity,
+                description: req.body.description,
+                tags: req.body.tags.split(','),
                 startDate: req.body.startDate,
                 endDate: req.body.endDate,
-                product: req.product._id.toString(),
-                seller: decodedId,
+            }
+            if (req.files && req.files.length > 0) {
+                const uploadPromises = req.files.map(async (file) => {
+                    return this.s3Util.upload(file)
+                })
+                const images = await Promise.all(uploadPromises)
+                body.images = images
             }
 
-            req.auction = auction
-            next()
-        } catch (err) {
-            if (req.images && req.images.length > 0) {
-                await deleteFromS3(req.images)
+            let validatedBody
+
+            try {
+                validatedBody = await auctionSchema.validateAsync(body)
+            } catch (err) {
+                logger.error(err.message)
+                return next(new AppError(err.details[0].message, HTTP_STATUS_CODES.BAD_REQUEST))
             }
-            next(err)
-        }
-    })
-    /**
-     * @description Validate auction body.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course create auction
-     * @order 5
-     */
-    static isValidAuction = asyncWrapper(async (req, res, next) => {
-        try {
-            req.auction = await auctionSchema.validateAsync(req.auction)
-            next()
-        } catch (err) {
-            if (req.images && req.images.length > 0) {
-                await deleteFromS3(req.images)
-            }
-            next(
-                new AppError(
-                    err.details[0].message,
-                    HTTP_STATUS_CODES.BAD_REQUEST
-                )
-            )
-        }
-    })
-    /**
-     * @description Create auction document in databse.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course create auction
-     * @order 6
-     */
-    static createAuction = asyncWrapper(async (req, res, next) => {
-        try {
-            const newAuction = await Auction.create([req.auction], {
-                session: req.session,
-            })
-            await req.session.commitTransaction()
-            req.session.endSession()
 
-            res.status(HTTP_STATUS_CODES.CREATED).json(
-                new AppResponse({ auction: newAuction })
-            )
-        } catch (err) {
-            await req.session.abortTransaction()
-            req.session.endSession()
-            if (req.images && req.images.length > 0) {
-                await deleteFromS3(req.images)
-            }
-            next(
-                new AppError(
-                    err.message,
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-                )
-            )
-        }
-    })
-}
-
-class Update {
-    /**
-     * @description Validate auction body upon update.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course update auction
-     * @order 1
-     */
-    static isValidAuction = asyncWrapper(async (req, res, next) => {
-        try {
-            req.auction = await auctionSchema.validateAsync(req.auction)
-            next()
-        } catch (err) {
-            next(
-                new AppError(
-                    err.details[0].message,
-                    HTTP_STATUS_CODES.BAD_REQUEST
-                )
-            )
-        }
-    })
-    /**
-     * @description Check if the auction exists.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course update auction
-     * @order 2
-     */
-    static isExists = asyncWrapper(async (req, res, next) => {
-        const auctionId = req.params.auctionId
-
-        const auction = await Auction.findById(auctionId).select([
-            '_id',
-            'seller',
-        ])
-
-        if (!auction) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.auction.notFound,
-                    HTTP_STATUS_CODES.NOT_FOUND
-                )
-            )
-        }
-        req.oldAuction = auction
-        next()
-    })
-    /**
-     * @description Check if the user has permission to update the auction.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course update auction
-     * @order 3
-     */
-    static isUserAuthorized = asyncWrapper(async (req, res, next) => {
-        const decodedId = req.decodedToken.id
-
-        const auction = req.oldAuction
-
-        if (auction.seller != decodedId) {
-            return next(
-                new AppError(
-                    MODEL_MESSAGES.user.unauthorized,
-                    HTTP_STATUS_CODES.FORBIDDEN
-                )
-            )
-        }
-
-        next()
-    })
-    /**
-     * @description Update the auction with the new data.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course update auction
-     * @order 4
-     */
-    static update = asyncWrapper(async (req, res, next) => {
-        const auctionId = req.params.auctionId
-
-        await Auction.updateOne(
-            { _id: auctionId },
-            { $set: { ...req.auction } }
-        )
-
-        res.status(HTTP_STATUS_CODES.OK).json(new AppResponse(null))
-    })
-}
-
-class Delete {
-    /**
-     * @description Validate auction ownership.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course delete auction
-     * @order 1
-     */
-    static isUserAuthorized = asyncWrapper(async (req, res, next) => {
-        const session = await mongoose.startSession()
-        try {
-            session.startTransaction()
-            const auctionId = req.params.auctionId
-            const decodedId = req.decodedToken.id
-
-            const auction = await Auction.findById(auctionId)
-                .select(['_id', 'seller', 'product'])
-                .session(session)
-
+            let auction = await this.auctionRepo.update(auctionId, userId, validatedBody)
             if (!auction) {
                 return next(
                     new AppError(
-                        MODEL_MESSAGES.auction.notFound,
-                        HTTP_STATUS_CODES.NOT_FOUND
-                    )
-                )
-            }
-
-            if (auction.seller != decodedId) {
-                return next(
-                    new AppError(
-                        MODEL_MESSAGES.user.unauthorized,
+                        'Auction not found or user does not have permission to update it',
                         HTTP_STATUS_CODES.FORBIDDEN
                     )
                 )
             }
-
-            req.auction = auction
-            req.session = session
-            next()
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auction }))
         } catch (err) {
-            await session.abortTransaction()
-            session.endSession()
-            next(
-                new AppError(
-                    err.message,
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-                )
-            )
+            if (body.images) {
+                await this.s3Util.delete(body.images)
+            }
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
         }
-    })
-    /**
-     * @description Find the related product and store its images array.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course delete auction
-     * @order 2
-     */
-    static getProductImages = asyncWrapper(async (req, res, next) => {
-        try {
-            const product = await Product.findById(req.auction.product)
-                .select(['_id', 'images'])
-                .session(req.session)
-
-            req.images = product.images
-            next()
-        } catch (err) {
-            await req.session.abortTransaction()
-            req.session.endSession()
-            next(
-                new AppError(
-                    err.message,
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-                )
-            )
-        }
-    })
+    }
 
     /**
-     * @description Delete the related product.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course delete auction
-     * @order 3
+     * Delete an existing auction.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {Function} next - Express next function.
+     * @returns {Promise<void>} Resolves with a JSON response containing the deleted auction.
+     * @throws {AppError} Throws an error if deletion fails.
      */
-    static deleteProduct = asyncWrapper(async (req, res, next) => {
+    delete = async (req, res, next) => {
+        let auction = {}
         try {
-            await Product.deleteOne({ _id: req.auction.product }).session(
-                req.session
-            )
-            next()
-        } catch (err) {
-            await req.session.abortTransaction()
-            req.session.endSession()
-            next(
-                new AppError(
-                    err.message,
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
+            const auctionId = req.params.auctionId
+            const userId = req.decodedToken.id
+            auction = await this.auctionRepo.delete(auctionId, userId)
+            if (!auction) {
+                return next(
+                    new AppError(
+                        'Auction not found or user does not have permission to delete it',
+                        HTTP_STATUS_CODES.FORBIDDEN
+                    )
                 )
-            )
-        }
-    })
-
-    /**
-     * @description Delete the auction.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course delete auction
-     * @order 4
-     */
-    static deleteAuction = asyncWrapper(async (req, res, next) => {
-        try {
-            await Auction.deleteOne({ _id: req.auction._id }).session(
-                req.session
-            )
-            next()
+            }
+            return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auction }))
         } catch (err) {
-            await req.session.abortTransaction()
-            req.session.endSession()
-            next(
-                new AppError(
-                    err.message,
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-                )
-            )
+            logger.error(err.message)
+            return next(new AppError(err.message, HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR))
+        } finally {
+            if (auction && auction.images) {
+                await this.s3Util.delete(auction.images)
+            }
         }
-    })
-
-    /**
-     * @description Delete the related product images.
-     * @param {Object} req - The request object.
-     * @param {Object} res - The response object.
-     * @param {Function} next - The next middleware function.
-     * @course delete auction
-     * @order 5
-     */
-    static deleteProductImages = asyncWrapper(async (req, res, next) => {
-        try {
-            await deleteFromS3(req.images)
-            await req.session.commitTransaction()
-            req.session.endSession()
-            res.status(HTTP_STATUS_CODES.OK).json(new AppResponse(null))
-        } catch (err) {
-            await req.session.abortTransaction()
-            req.session.endSession()
-            next(
-                new AppError(
-                    err.message,
-                    HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR
-                )
-            )
-        }
-    })
+    }
 }
-
-module.exports = {
-    Get,
-    Create,
-    Update,
-    Delete,
-}
+module.exports = AuctionController
