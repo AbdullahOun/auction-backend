@@ -1,38 +1,21 @@
 const express = require('express')
-const { Get, Create, Delete } = require('../controllers/chatRooms.controller')
 const router = express.Router()
 const verifyToken = require('../middlewares/verifyToken')
+const ChatRoomsController = require('../controllers/chatRooms.controller')
+const ChatRoomsRepo = require('../repos/chatRooms.repo')
+const MessagesRepo = require('../repos/messages.repo')
+const UsersRepo = require('../repos/users.repo')
 
-/**
- * Routes for managing chat rooms.
- */
-router
-    .route('/')
-    /**
-     * GET request to fetch all chat rooms.
-     * Requires authentication.
-     */
-    .get(verifyToken, Get.all)
-    /**
-     * POST request to create a new chat room.
-     * Requires authentication.
-     */
-    .post(verifyToken, Create.create)
+const chatRoomsRepo = new ChatRoomsRepo()
+const messagesRepo = new MessagesRepo()
+const usersRepo = new UsersRepo()
+const chatRoomsController = new ChatRoomsController(chatRoomsRepo, messagesRepo, usersRepo)
 
-/**
- * Routes for managing a specific chat room.
- */
+router.route('/').get(verifyToken, chatRoomsController.getAll).post(verifyToken, chatRoomsController.create)
+
 router
     .route('/:chatRoomId')
-    /**
-     * GET request to fetch a specific chat room.
-     * Requires authentication.
-     */
-    .get(verifyToken, Get.one)
-    /**
-     * DELETE request to delete a specific chat room.
-     * Requires authentication.
-     */
-    .delete(verifyToken, Delete.delete)
+    .get(verifyToken, chatRoomsController.getById)
+    .delete(verifyToken, chatRoomsController.delete)
 
 module.exports = router
