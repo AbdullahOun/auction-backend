@@ -1,7 +1,10 @@
 const verifySocketToken = require('./middlewares/verifySocketToken')
-const AuctionModel = require('../models/auction.model')
-const BidModel = require('../models/bid.model')
-const logger = require('../utils/logging/logger')
+const { logger } = require('../utils/logging/logger')
+const AuctionRepo = require('../repos/auction.repo')
+const BidsRepo = require('../repos/bids.repo')
+
+const auctionRepo = new AuctionRepo()
+const bidsRepo = new BidsRepo()
 
 class Auction {
     constructor(io) {
@@ -13,7 +16,7 @@ class Auction {
     handleConnection = async (socket) => {
         try {
             const auctionId = socket.handshake.query.auctionId
-            const auction = await AuctionModel.findById(auctionId)
+            const auction = await auctionRepo.getById(auctionId)
             if (!auction) {
                 throw new Error('Auction not found')
             }
@@ -31,19 +34,8 @@ class Auction {
     handleBid = async (data) => {
         try {
             const auctionId = data.auctionId
-            const bid = new BidModel({
-                auction: auctionId,
-                buyer: data.buyerId,
-                price: data.price,
-            })
-            await bid.save()
-            const newBid = await BidModel.findById(bid._id)
-                .populate('auction')
-                .populate({
-                    path: 'buyer',
-                    select: '-password',
-                })
-            this.auction.to(auctionId).emit('bid', newBid)
+            const bid = await bidsRepo.createAndRetireve(auctionId, data.buyerId, data.price)
+            this.auction.to(auctionId).emit('bid', bid)
         } catch (error) {
             logger.error(error.message)
         }
