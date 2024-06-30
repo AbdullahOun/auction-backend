@@ -1,22 +1,25 @@
 const mongoose = require('mongoose')
 
 /**
- * Schema for the ChatRoom model.
+ * Schema definition for the ChatRoom model.
+ * @typedef {import('mongoose').Schema<Document<any, any, any>, import('mongoose').Model<Document<any, any, any>>, undefined, any>} MongooseSchema
+ */
+
+/**
+ * @type {MongooseSchema}
  */
 const chatRoomSchema = new mongoose.Schema(
     {
-        /**
-         * The first user in the chat room.
-         * @type {mongoose.Schema.Types.ObjectId}
-         * @required
-         * @ref User
-         * @validate Custom validator to check if user1 exists in the User collection
-         */
         user1: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: 'User',
             validate: {
+                /**
+                 * Asynchronous validator function to check if user1 exists.
+                 * @param {mongoose.Schema.Types.ObjectId} value - The user1's ObjectId.
+                 * @returns {Promise<boolean>} Whether the user1 exists.
+                 */
                 validator: async function (value) {
                     const user = await mongoose.model('User').findById(value)
                     return user !== null
@@ -24,30 +27,25 @@ const chatRoomSchema = new mongoose.Schema(
                 message: 'User1 does not exist',
             },
         },
-        /**
-         * The second user in the chat room.
-         * @type {mongoose.Schema.Types.ObjectId}
-         * @required
-         * @ref User
-         * @validate Custom validator to check if user2 exists in the User collection
-         */
         user2: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: 'User',
             validate: {
+                /**
+                 * Asynchronous validator function to check if user2 exists and is different from user1.
+                 * @param {mongoose.Schema.Types.ObjectId} value - The user2's ObjectId.
+                 * @returns {Promise<boolean>} Whether the user2 exists and is different from user1.
+                 */
                 validator: async function (value) {
                     const user = await mongoose.model('User').findById(value)
                     return user !== null && user._id != this.user1._id
                 },
-                message: 'User2 does not exist',
+                message: 'User2 does not exist or cannot be the same as User1',
             },
         },
     },
     {
-        /**
-         * Adds createdAt and updatedAt fields to the schema.
-         */
         timestamps: true,
     }
 )
@@ -55,4 +53,5 @@ const chatRoomSchema = new mongoose.Schema(
 // Ensure that a combination of user1 and user2 is unique
 chatRoomSchema.index({ user1: 1, user2: 1 }, { unique: true })
 chatRoomSchema.index({ user2: 1, user1: 1 }, { unique: true })
+
 module.exports = mongoose.model('ChatRoom', chatRoomSchema)
