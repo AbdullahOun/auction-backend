@@ -35,6 +35,7 @@ class AuctionController {
             const minStartDate = req.query.min_start_date ? new Date(req.query.min_start_date) : null
             const maxStartDate = req.query.max_start_date ? new Date(req.query.max_start_date) : null
             const tags = req.query.tags ? req.query.tags.split(',') : null
+            const status = req.query.status ? req.query.status : null
 
             const auctions = await this.auctionRepo.getAll(
                 limit,
@@ -44,7 +45,8 @@ class AuctionController {
                 maxPrice,
                 tags,
                 minStartDate,
-                maxStartDate
+                maxStartDate,
+                status
             )
             return res.status(HTTP_STATUS_CODES.OK).json(new AppResponse({ auctions }))
         } catch (err) {
