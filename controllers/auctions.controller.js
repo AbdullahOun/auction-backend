@@ -129,11 +129,17 @@ class AuctionController {
                 maxPrice: req.body.maxPrice,
                 quantity: req.body.quantity,
                 description: req.body.description,
-                tags: req.body.tags.split(','),
                 startDate: new Date(req.body.startDate),
                 endDate: new Date(req.body.endDate),
                 seller: userId,
             }
+
+            if (req.body.tags && req.body.tags.length > 0) {
+                body.tags = req.body.tags.split(',')
+            } else {
+                body.tags = []
+            }
+
             const uploadPromises = req.files.map(async (file) => {
                 return this.s3Util.upload(file)
             })
@@ -177,15 +183,16 @@ class AuctionController {
                 maxPrice: req.body.maxPrice,
                 quantity: req.body.quantity,
                 description: req.body.description,
-
                 startDate: req.body.startDate,
                 endDate: req.body.endDate,
             }
+
             if (req.body.tags && req.body.tags.length > 0) {
                 body.tags = req.body.tags.split(',')
             } else {
                 body.tags = []
             }
+
             if (req.files && req.files.length > 0) {
                 const uploadPromises = req.files.map(async (file) => {
                     return this.s3Util.upload(file)
