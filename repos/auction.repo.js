@@ -26,7 +26,8 @@ class AuctionRepo {
         maxPrice = null,
         tags = null,
         minStartDate = null,
-        maxStartDate = null
+        maxStartDate = null,
+        status = null
     ) {
         let query = {}
 
@@ -58,7 +59,7 @@ class AuctionRepo {
             }
         }
 
-        const auctions = await Auction.find(query)
+        let auctions = await Auction.find(query)
             .select('-__v')
             .sort({ createdAt: -1 })
             .limit(limit)
@@ -72,6 +73,9 @@ class AuctionRepo {
             await RedisCacheClient.set('auctionsFirstPage', auctions)
         }
 
+        if (status) {
+            auctions = auctions.filter((auction) => auction.status == status)
+        }
         return auctions
     }
 
@@ -96,6 +100,7 @@ class AuctionRepo {
     async create(body) {
         const auction = new Auction(body)
         await auction.save()
+        await RedisCacheClient.set('auctionsFirstPage', null)
         return auction
     }
 
@@ -108,6 +113,7 @@ class AuctionRepo {
      */
     async update(auctionId, userId, body) {
         const auction = await Auction.findOneAndUpdate({ _id: auctionId, seller: userId }, body, { new: true })
+        await RedisCacheClient.set('auctionsFirstPage', null)
         return auction
     }
 
@@ -122,6 +128,7 @@ class AuctionRepo {
             _id: auctionId,
             seller: userId,
         })
+        await RedisCacheClient.set('auctionsFirstPage', null)
         return auction
     }
 
