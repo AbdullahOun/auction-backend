@@ -177,9 +177,14 @@ class AuctionController {
                 maxPrice: req.body.maxPrice,
                 quantity: req.body.quantity,
                 description: req.body.description,
-                tags: req.body.tags.split(','),
+
                 startDate: req.body.startDate,
                 endDate: req.body.endDate,
+            }
+            if (req.body.tags && req.body.tags.length > 0) {
+                body.tags = req.body.tags.split(',')
+            } else {
+                body.tags = []
             }
             if (req.files && req.files.length > 0) {
                 const uploadPromises = req.files.map(async (file) => {
